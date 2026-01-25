@@ -3,6 +3,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 import { globalIgnores } from "eslint/config";
 import { qwikEslint9Plugin } from "eslint-plugin-qwik";
+import eslintPluginImport from "eslint-plugin-import";
 
 const ignores = [
   "**/*.log",
@@ -51,6 +52,9 @@ export default tseslint.config(
   js.configs.recommended,
   tseslint.configs.recommended,
   qwikEslint9Plugin.configs.recommended,
+  eslintPluginImport.flatConfigs.recommended,
+  eslintPluginImport.flatConfigs.typescript,
+  // importPlugin.configs.typescript,
   {
     languageOptions: {
       globals: {
@@ -68,6 +72,18 @@ export default tseslint.config(
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
+      "import/no-unresolved": "off",
+      "import/order": [
+        "error",
+        {
+          alphabetize: {
+            caseInsensitive: true,
+            order: "asc",
+            orderImportKind: "asc",
+          },
+          "newlines-between": "always",
+        },
+      ],
     },
   },
 );

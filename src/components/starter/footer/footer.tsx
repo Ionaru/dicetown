@@ -1,19 +1,17 @@
 import { component$ } from "@builder.io/qwik";
-import { useServerTimeLoader } from "../../../routes/layout";
-import styles from "./footer.module.css";
+
+import { useDBTest, useServerTimeLoader } from "../../../routes/layout";
 
 export default component$(() => {
   const serverTime = useServerTimeLoader();
+  const { data } = useDBTest().value;
+  console.log("data", data);
 
   return (
-    <footer>
-      <div class="container">
-        <a href="https://www.builder.io/" target="_blank" class={styles.anchor}>
-          <span>Made with ♡ by Builder.io</span>
-          <span class={styles.spacer}>|</span>
-          <span>{serverTime.value.date}</span>
-        </a>
-      </div>
+    <footer class="flex justify-center items-center">
+      <span>Made with ♡ by Ionaru</span>
+      <span class="mx-2">|</span>
+      <span class="font-junegull">{serverTime.value.date}</span>
     </footer>
   );
 });
