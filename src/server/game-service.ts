@@ -53,19 +53,12 @@ type DbExecutor = Pick<typeof db, "query" | "update">;
 export const normalizeRoomCode = (code: string): string =>
   code.trim().toUpperCase();
 
-export const createRoom = async (input: {
-  hostName: string;
-  aiCount: number;
-}): Promise<{ code: string; playerId: string }> => {
-  if (input.aiCount < 0 || input.aiCount + 1 > MAX_PLAYERS) {
-    throw new Error("Invalid AI player count");
-  }
-
+export const createRoom = async (hostId: string): Promise<string> => {
   const code = await generateRoomCode();
 
   const room = await db
     .insert(rooms)
-    .values({ code })
+    .values({ code, hostId })
     .returning({ id: rooms.id, code: rooms.code });
 
   const roomId = room[0]?.id;
@@ -73,25 +66,7 @@ export const createRoom = async (input: {
     throw new Error("Failed to create room");
   }
 
-  const host = await createPlayer({
-    roomId,
-    name: input.hostName,
-    isAi: false,
-    turnOrder: 1,
-  });
-
-  const aiPlayers = Array.from({ length: input.aiCount }, (_, index) =>
-    createPlayer({
-      roomId,
-      name: `AI ${index + 1}`,
-      isAi: true,
-      turnOrder: 2 + index,
-    }),
-  );
-
-  await Promise.all(aiPlayers);
-
-  return { code, playerId: host.id };
+  return code;
 };
 
 export const joinRoom = async (input: {

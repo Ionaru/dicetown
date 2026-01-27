@@ -7,6 +7,9 @@
   "engines-annotation": "Mostly required by sharp which needs a Node-API v9 compatible runtime",
   "private": true,
   "type": "module",
+  "prettier": {
+    "plugins": ["prettier-plugin-tailwindcss"]
+  },
   "scripts": {
     "build": "qwik build",
     "build.client": "vite build",
@@ -54,6 +57,7 @@
     "@3d-dice/dice-box-threejs": "^0.0.12",
     "@supabase/supabase-js": "^2.90.1",
     "drizzle-orm": "^0.45.1",
-    "postgres": "^3.4.8"
+    "postgres": "^3.4.8",
+    "unique-names-generator": "^4.7.1"
   }
 }

@@ -27,6 +27,17 @@ export const turnPhaseEnum = pgEnum("turn_phase", [
   TurnPhase.Cleanup,
 ]);
 
+export const anonymousUsers = pgTable(
+  "anonymous_users",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(), // Not unique, there's only so many animal names.
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+).enableRLS();
+
 export const users = pgTable(
   "users",
   {
@@ -41,7 +52,7 @@ export const users = pgTable(
       .defaultNow(),
   },
   (table) => [index("users_is_guest_idx").on(table.isGuest)],
-);
+).enableRLS();
 
 export const webauthnCredentials = pgTable(
   "webauthn_credentials",
@@ -68,12 +79,13 @@ export const webauthnCredentials = pgTable(
     uniqueIndex("webauthn_credential_id_unique").on(table.credentialId),
     index("webauthn_user_id_idx").on(table.userId),
   ],
-);
+).enableRLS();
 
 export const rooms = pgTable(
   "rooms",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    hostId: uuid("host_id").notNull(),
     code: text("code").notNull(),
     status: roomStatusEnum("status").notNull().default(RoomStatus.Waiting),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -87,7 +99,7 @@ export const rooms = pgTable(
     uniqueIndex("rooms_code_unique").on(table.code),
     index("rooms_status_idx").on(table.status),
   ],
-);
+).enableRLS();
 
 export const players = pgTable(
   "players",
@@ -124,14 +136,14 @@ export const players = pgTable(
       table.turnOrder,
     ),
   ],
-);
+).enableRLS();
 
 export const gameState = pgTable(
   "game_state",
   {
+    id: uuid("id").defaultRandom().primaryKey(),
     roomId: uuid("room_id")
-      .primaryKey()
-      .references(() => rooms.id, { onDelete: "cascade" }),
+      .references(() => rooms.id, { onDelete: "set null" }),
     currentTurnPlayerId: uuid("current_turn_player_id").references(
       () => players.id,
       { onDelete: "set null" },
@@ -152,8 +164,11 @@ export const gameState = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index("game_state_phase_idx").on(table.phase)],
-);
+  (table) => [
+    index("game_state_phase_idx").on(table.phase),
+    index("game_state_room_id_idx").on(table.roomId),
+  ],
+).enableRLS();
 
 export const usersRelations = relations(users, ({ many }) => ({
   credentials: many(webauthnCredentials),

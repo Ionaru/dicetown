@@ -24,8 +24,20 @@
   --color-mk-card-yellow-sky: #f4e28e;
 }
 
+:root {
+  view-transition-name: root !important;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.3s;
+}
+
 html {
   @apply font-honey h-full bg-mk-card-sky;
+
+  &.transition {
+    view-transition-name: root;
+  }
 
   body {
     @apply h-full grid grid-rows-[1fr_auto];

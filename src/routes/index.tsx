@@ -1,47 +1,69 @@
-import { component$, useContext } from "@builder.io/qwik";
-import { Link, server$, type DocumentHead } from "@builder.io/qwik-city";
+import { $, component$, useSignal } from "@builder.io/qwik";
+import {
+  Link,
+  routeLoader$,
+  server$,
+  useNavigate,
+  type DocumentHead,
+} from "@builder.io/qwik-city";
 
+import { getUserName } from "../auth/username";
 import Button from "../components/common/button";
-import { DiceBoxContext } from "../context/dice-box";
+import { createRoom } from "../server/game-service";
 import { rollDice } from "../server/secure-random";
 import { title } from "../utils/title";
 
+export const useAnonymousUserName = routeLoader$(async(requestEvent) => await getUserName(requestEvent));
+
 export const serverRollDice = server$(async () => {
   const [firstNumber, secondNumber] = rollDice(2, 6);
-  console.log(`${firstNumber},${secondNumber}`);
   return `${firstNumber},${secondNumber}`;
 });
 
+const createRoomAction = server$(async (hostId: string) => await createRoom(hostId));
+
 export default component$(() => {
-  const diceBox = useContext(DiceBoxContext);
-  if (diceBox.value) {
-    diceBox.value.onRollComplete = () => {
-      console.log("HIJACKED");
-    };
-  }
+  const { name, sessionId } = useAnonymousUserName().value;
+  const nav = useNavigate();
+  const isLoading = useSignal(false);
+  const createRoom = $(async () => {
+    try {
+      isLoading.value = true;
+      const code = await createRoomAction(sessionId);
+      await nav(`/room/${code}/`);
+    } finally {
+      isLoading.value = false;
+    }
+  });
 
   return (
-    <div class="flex flex-col items-center justify-center h-full gap-4">
+    <>
+    <div class="absolute right-4 top-4 capitalize text-xl select-none">
+      <p>👤 Anonymous {name}</p>
+    </div>
+    <div class="flex h-full flex-col items-center justify-center gap-4 select-none">
       <h1 class="text-8xl font-bold">{title}</h1>
-      <p>{title} is a game about rolling dice and building towns.</p>
-      <div class="flex flex-row gap-4 items-center justify-center">
-        <Link href="/room/create">
-          <Button>Play</Button>
+      <p class="text-xl">Roll your dice, earn coins, and expand your town!</p>
+      <div class="grid grid-cols-2 items-center justify-center gap-4 w-100">
+        <Button onClick$={createRoom} isLoading={isLoading.value}>Create Game</Button>
+        <Link href="/room/join/">
+          <Button>Join Game</Button>
         </Link>
-        <Link href="/room/join">
-          <Button>Join</Button>
+        <Link class="col-span-2">
+          <Button variant="secondary">How to play</Button>
         </Link>
       </div>
     </div>
+    </>
   );
 });
 
 export const head: DocumentHead = {
-  title: "Welcome to Qwik",
+  title: `Welcome`,
   meta: [
     {
       name: "description",
-      content: "Qwik site description",
+      content: `${title} is a game about rolling dice and building towns.`,
     },
   ],
 };
