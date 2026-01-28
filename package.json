@@ -55,6 +55,8 @@
   },
   "dependencies": {
     "@3d-dice/dice-box-threejs": "^0.0.12",
+    "@simplewebauthn/browser": "npm:@jsr/simplewebauthn__browser",
+    "@simplewebauthn/server": "npm:@jsr/simplewebauthn__server",
     "@supabase/supabase-js": "^2.90.1",
     "drizzle-orm": "^0.45.1",
     "postgres": "^3.4.8",

@@ -43,7 +43,6 @@ export const users = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     displayName: text("display_name"),
-    isGuest: boolean("is_guest").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -51,13 +50,11 @@ export const users = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index("users_is_guest_idx").on(table.isGuest)],
 ).enableRLS();
 
 export const webauthnCredentials = pgTable(
   "webauthn_credentials",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -65,7 +62,7 @@ export const webauthnCredentials = pgTable(
     credentialPublicKey: text("credential_public_key").notNull(),
     counter: integer("counter").notNull().default(0),
     transports: text("transports").array(),
-    deviceType: text("device_type").notNull(),
+    // deviceType: text("device_type").notNull(),
     backupEligible: boolean("backup_eligible").notNull().default(false),
     backupState: boolean("backup_state").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
