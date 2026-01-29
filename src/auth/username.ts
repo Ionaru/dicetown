@@ -1,51 +1,44 @@
 import { RequestEventBase } from "@builder.io/qwik-city";
 import { eq } from "drizzle-orm/pg-core/expressions";
-import { animals, uniqueNamesGenerator } from "unique-names-generator";
 
 import { db } from "../db/db";
 import { anonymousUsers, users } from "../db/schema";
 
-const getSessionId = (requestEvent: RequestEventBase) => {
-    const existingCookie = requestEvent.cookie.get("sessionId");
-    if (existingCookie) {
-      return existingCookie.value;
-    }
-    const sessionId = crypto.randomUUID();
-    requestEvent.cookie.set("sessionId", sessionId, {
-      httpOnly: true,
-      sameSite: "strict",
-    });
-    return sessionId;
-  };
+import { getSessionContext } from "./session";
 
-export const getUserName = async (requestEvent: RequestEventBase): Promise<{ name: string; sessionId: string }> => {
-    const sessionId = getSessionId(requestEvent);
+export const getUserName = async (
+  requestEvent: RequestEventBase,
+): Promise<{ name: string; sessionId: string }> => {
+  const { session } = await getSessionContext(requestEvent);
+  if (session.userId) {
     const user = await db.query.users.findFirst({
-      where: eq(users.id, sessionId),
+      where: eq(users.id, session.userId),
     });
     if (user) {
-      return { name: user.displayName ?? "Unknown", sessionId };
+      return { name: user.displayName ?? "Unknown", sessionId: session.id };
     }
-    const anonymousUser = await db.query.anonymousUsers.findFirst({
-      where: eq(anonymousUsers.id, sessionId),
-    });
-    if (anonymousUser) {
-      return { name: anonymousUser.name, sessionId };
-    }
-    const name = `Anonymous ${uniqueNamesGenerator({ dictionaries: [animals] })}`;
-    await db.insert(anonymousUsers).values({ id: sessionId, name });
-    return { name, sessionId };
+  }
+
+  const anonymousUser = await db.query.anonymousUsers.findFirst({
+    where: eq(anonymousUsers.id, session.anonymousUserId),
+  });
+  return {
+    name: anonymousUser?.name ?? "Unknown",
+    sessionId: session.id,
+  };
 };
 
-export const getUserNameFromId = async (id: string): Promise<{ name: string; sessionId: string }> => {
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, id),
-    });
-    if (user) {
-      return { name: user.displayName ?? "Unknown", sessionId: id };
-    }
-    const anonymousUser = await db.query.anonymousUsers.findFirst({
-      where: eq(anonymousUsers.id, id),
-    });
-    return { name: anonymousUser?.name ?? "Unknown", sessionId: id };
-  };
+export const getUserNameFromId = async (
+  id: string,
+): Promise<{ name: string; sessionId: string }> => {
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, id),
+  });
+  if (user) {
+    return { name: user.displayName ?? "Unknown", sessionId: id };
+  }
+  const anonymousUser = await db.query.anonymousUsers.findFirst({
+    where: eq(anonymousUsers.id, id),
+  });
+  return { name: anonymousUser?.name ?? "Unknown", sessionId: id };
+};

@@ -15,7 +15,9 @@ import { rooms } from "../../../../db/schema";
 import { normalizeRoomCode } from "../../../../server/game-service";
 import { title } from "../../../../utils/title";
 
-export const useAnonymousUserName = routeLoader$(async (requestEvent) => await getUserName(requestEvent));
+export const useAnonymousUserName = routeLoader$(
+  async (requestEvent) => await getUserName(requestEvent),
+);
 
 const findRoom = server$(async (code: string) => {
   const normalizedCode = normalizeRoomCode(code);

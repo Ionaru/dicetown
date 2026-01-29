@@ -1,5 +1,10 @@
-import { component$ } from "@builder.io/qwik";
-import { Link, routeAction$, routeLoader$, server$ } from "@builder.io/qwik-city";
+import { $, component$ } from "@builder.io/qwik";
+import {
+  Link,
+  routeLoader$,
+  server$,
+  useNavigate,
+} from "@builder.io/qwik-city";
 import { asc, eq } from "drizzle-orm/pg-core/expressions";
 
 import { getUserNameFromId } from "../../../../auth/username";
@@ -35,17 +40,7 @@ export const joinRoom = server$(async (code: string) => {
     where: eq(rooms.code, code),
   });
   if (!room) {
-    return { success: false, error: "Room not found" };
-  }
-  return { success: true, room };
-});
-
-export const useJoinRoom = routeAction$(async ({ code }) => {
-  const room = await db.query.rooms.findFirst({
-    where: eq(rooms.code, code),
-  });
-  if (!room) {
-    return { success: false, error: "Room not found" };
+    throw new Error("Room not found");
   }
   await db.insert(players).values({
     roomId: room.id,
@@ -54,14 +49,22 @@ export const useJoinRoom = routeAction$(async ({ code }) => {
     turnOrder: 1,
     // turnOrder: room.players.length + 1,
   });
-  return { success: true, room };
+  return room;
 });
 
 export default component$(() => {
   const room = useRoom().value;
+  const nav = useNavigate();
   const hostUserName = useHostUsername().value;
-  const joinRoom = useJoinRoom();
   if (room) {
+    const joinRoomAction = $(async () => {
+      const joinedRoom = await joinRoom(room.code);
+      if (!joinedRoom) {
+        return;
+      }
+      nav(`/room/${joinedRoom.code}/`);
+    });
+
     return (
       <div class="flex h-full flex-col items-center justify-center">
         <h1 class="text-4xl font-bold">Room {room.code}</h1>
@@ -75,7 +78,7 @@ export default component$(() => {
             </li>
           ))}
         </ul>
-        <button onClick$={() => joinRoom.submit({ code: room.code })}>Join Room</button>
+        <button onClick$={joinRoomAction}>Join Room</button>
       </div>
     );
   }

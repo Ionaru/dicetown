@@ -1,1 +1,0 @@
-ALTER TABLE "rooms" ADD COLUMN "host_id" uuid NOT NULL;

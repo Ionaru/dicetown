@@ -12,6 +12,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+import { EstablishmentId, LandmarkId } from "../game/constants";
 import { RoomStatus, TurnPhase } from "../utils/enums";
 
 export const roomStatusEnum = pgEnum("room_status", [
@@ -27,22 +28,42 @@ export const turnPhaseEnum = pgEnum("turn_phase", [
   TurnPhase.Cleanup,
 ]);
 
-export const anonymousUsers = pgTable(
-  "anonymous_users",
+export const anonymousUsers = pgTable("anonymous_users", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(), // Not unique, there's only so many animal names.
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+}).enableRLS();
+
+export const users = pgTable("users", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  displayName: text("display_name"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+}).enableRLS();
+
+export const sessions = pgTable(
+  "sessions",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    name: text("name").notNull(), // Not unique, there's only so many animal names.
-    createdAt: timestamp("created_at", { withTimezone: true })
+    anonymousUserId: uuid("anonymous_user_id")
+      .notNull()
+      .references(() => anonymousUsers.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    data: jsonb("data")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
-  },
-).enableRLS();
-
-export const users = pgTable(
-  "users",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    displayName: text("display_name"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -50,6 +71,11 @@ export const users = pgTable(
       .notNull()
       .defaultNow(),
   },
+  (table) => [
+    index("sessions_anonymous_user_id_idx").on(table.anonymousUserId),
+    index("sessions_user_id_idx").on(table.userId),
+    index("sessions_expires_at_idx").on(table.expiresAt),
+  ],
 ).enableRLS();
 
 export const webauthnCredentials = pgTable(
@@ -112,9 +138,11 @@ export const players = pgTable(
     isAi: boolean("is_ai").notNull().default(false),
     coins: integer("coins").notNull().default(0),
     cards: jsonb("cards")
+      .$type<Partial<Record<EstablishmentId, number>>>()
       .notNull()
       .default(sql`'{}'::jsonb`),
     landmarks: jsonb("landmarks")
+      .$type<Partial<Record<LandmarkId, boolean>>>()
       .notNull()
       .default(sql`'{}'::jsonb`),
     turnOrder: integer("turn_order").notNull(),
@@ -139,8 +167,9 @@ export const gameState = pgTable(
   "game_state",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    roomId: uuid("room_id")
-      .references(() => rooms.id, { onDelete: "set null" }),
+    roomId: uuid("room_id").references(() => rooms.id, {
+      onDelete: "set null",
+    }),
     currentTurnPlayerId: uuid("current_turn_player_id").references(
       () => players.id,
       { onDelete: "set null" },
@@ -170,6 +199,25 @@ export const gameState = pgTable(
 export const usersRelations = relations(users, ({ many }) => ({
   credentials: many(webauthnCredentials),
   players: many(players),
+  sessions: many(sessions),
+}));
+
+export const anonymousUsersRelations = relations(
+  anonymousUsers,
+  ({ many }) => ({
+    sessions: many(sessions),
+  }),
+);
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  anonymousUser: one(anonymousUsers, {
+    fields: [sessions.anonymousUserId],
+    references: [anonymousUsers.id],
+  }),
+  user: one(users, {
+    fields: [sessions.userId],
+    references: [users.id],
+  }),
 }));
 
 export const webauthnCredentialsRelations = relations(

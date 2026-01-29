@@ -33,13 +33,13 @@
 }
 
 html {
-  @apply font-honey h-full bg-mk-card-sky;
+  @apply font-honey bg-mk-card-sky h-full;
 
   &.transition {
     view-transition-name: root;
   }
 
   body {
-    @apply h-full grid grid-rows-[1fr_auto];
+    @apply grid h-full grid-rows-[1fr_auto];
   }
 }

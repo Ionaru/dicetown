@@ -1,5 +1,10 @@
 import DiceBox from "@3d-dice/dice-box-threejs";
-import { component$, useContextProvider, useSignal, useVisibleTask$ } from "@builder.io/qwik";
+import {
+  component$,
+  useContextProvider,
+  useSignal,
+  useVisibleTask$,
+} from "@builder.io/qwik";
 import { routeLoader$ } from "@builder.io/qwik-city";
 
 import { DiceBoxContext } from "../../../context/dice-box";
