@@ -17,7 +17,10 @@ import {
   startAuthentication,
   startRegistration,
 } from "../../auth/webauthn";
-import Button from "../../components/common/button";
+import ErrorMessage from "../../components/common/ErrorMessage";
+import SmallTitle from "../../components/common/SmallTitle";
+import Button from "../../components/common/StandardButton";
+import Subtitle from "../../components/common/SubTitle";
 import { db } from "../../db/db";
 import { users, webauthnCredentials } from "../../db/schema";
 import { title } from "../../utils/title";
@@ -295,11 +298,11 @@ export default component$(() => {
 
   return (
     <div class="flex h-full flex-col items-center justify-center gap-4 select-none">
-      <p class="text-xl">Welcome to {title}</p>
-      <h1 class="text-4xl font-bold capitalize">👤 {anonymousUserName.name}</h1>
+      <Subtitle text={`Welcome to ${title}`} />
+      <SmallTitle title={`👤 ${anonymousUserName.name}`} />
       {authState.isLoggedIn ? (
         <>
-          <p class="text-xl">Here you can add a passkey or log out</p>
+          <Subtitle text="Here you can add a passkey or log out" />
           <div class="grid w-100 grid-cols-2 items-center justify-center gap-4">
             <Button onClick$={handleAddPasskey}>Add passkey</Button>
             <Button onClick$={handleLogout}>Log out</Button>
@@ -310,7 +313,7 @@ export default component$(() => {
         </>
       ) : (
         <>
-          <p class="text-xl">Here you can log in or create an account</p>
+          <Subtitle text="Here you can log in or create an account" />
           <div class="grid w-100 grid-cols-2 items-center justify-center gap-4">
             <Button onClick$={handleAuthentication}>Log in</Button>
             <Link href="/auth/create/">
@@ -322,9 +325,7 @@ export default component$(() => {
           </div>
         </>
       )}
-      {errorMessage.value && (
-        <p class="text-xl text-red-500">{errorMessage.value}</p>
-      )}
+      {errorMessage.value && <ErrorMessage message={errorMessage.value} />}
     </div>
   );
 });

@@ -8,6 +8,8 @@ import {
 import { asc, eq } from "drizzle-orm/pg-core/expressions";
 
 import { getUserNameFromId } from "../../../../auth/username";
+import SmallTitle from "../../../../components/common/SmallTitle";
+import Subtitle from "../../../../components/common/SubTitle";
 import { db } from "../../../../db/db";
 import { players, rooms } from "../../../../db/schema";
 
@@ -67,7 +69,7 @@ export default component$(() => {
 
     return (
       <div class="flex h-full flex-col items-center justify-center">
-        <h1 class="text-4xl font-bold">Room {room.code}</h1>
+        <SmallTitle title={`Room ${room.code}`} />
         <p class="text-2xl capitalize">Host: {hostUserName}</p>
         <p class="text-2xl">Status: {room.status}</p>
         <p class="text-2xl">Players: {room.players.length}</p>
@@ -85,8 +87,8 @@ export default component$(() => {
 
   return (
     <div class="flex h-full flex-col items-center justify-center">
-      <h1 class="text-4xl font-bold">Room not found</h1>
-      <p class="text-2xl">The room you are looking for does not exist.</p>
+      <SmallTitle title="Room not found" />
+      <Subtitle text="The room you are looking for does not exist." />
       <Link href="/" class="text-blue-500">
         Go back to the home page
       </Link>

@@ -9,8 +9,10 @@ import { startRegistration as startBrowserRegistration } from "@simplewebauthn/b
 
 import { attachUserToSession, getSessionContext } from "../../../auth/session";
 import { finishRegistration, startRegistration } from "../../../auth/webauthn";
-import Button from "../../../components/common/button";
-import { title } from "../../../utils/title";
+import Title from "../../../components/common/MainTitle";
+import Button from "../../../components/common/StandardButton";
+import Subtitle from "../../../components/common/SubTitle";
+import Input from "../../../components/common/TextInput";
 
 export const useStartRegistration = routeAction$(async (data, event) => {
   try {
@@ -115,20 +117,11 @@ export default component$(() => {
 
   return (
     <div class="flex h-full flex-col items-center justify-center gap-4 select-none">
-      <h1 class="text-8xl font-bold">{title}</h1>
-      <p class="text-xl">Choose a username to create an account</p>
+      <Title />
+      <Subtitle text="Choose a username to create an account" />
       <form onsubmit$={handleRegistration} preventdefault:submit>
         <div class="grid w-100 grid-cols-2 items-center justify-center gap-4">
-          <input
-            class="border-mk-blue bg-mk-white w-full rounded-md border px-4 py-2 text-center"
-            type="text"
-            placeholder="Enter username"
-            value={username.value}
-            oninput$={(e) =>
-              (username.value = (e.target as HTMLInputElement).value)
-            }
-            required
-          />
+          <Input value={username} placeholder="Enter username" required />
           <Button type="submit">Create an account</Button>
           <Link class="col-span-2" href="/auth/">
             <Button variant="secondary">Go back</Button>

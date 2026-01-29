@@ -1,11 +1,14 @@
 import { component$ } from "@builder.io/qwik";
 import { type DocumentHead } from "@builder.io/qwik-city";
 
+import Title from "../components/common/MainTitle";
+import Subtitle from "../components/common/SubTitle";
+
 export default component$(() => {
   return (
     <div class="flex h-full flex-col items-center justify-center gap-4 select-none">
-      <h1 class="text-8xl font-bold">404</h1>
-      <p class="text-2xl">Page not found</p>
+      <Title text="404" />
+      <Subtitle text="Page not found" />
     </div>
   );
 });

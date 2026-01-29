@@ -1,23 +1,21 @@
 import { $, component$, useSignal } from "@builder.io/qwik";
 import {
   Link,
-  routeLoader$,
   server$,
   useNavigate,
   type DocumentHead,
 } from "@builder.io/qwik-city";
 import { eq } from "drizzle-orm/pg-core/expressions";
 
-import { getUserName } from "../../../../auth/username";
-import Button from "../../../../components/common/button";
+import ErrorMessage from "../../../../components/common/ErrorMessage";
+import Title from "../../../../components/common/MainTitle";
+import Button from "../../../../components/common/StandardButton";
+import Subtitle from "../../../../components/common/SubTitle";
+import Input from "../../../../components/common/TextInput";
 import { db } from "../../../../db/db";
 import { rooms } from "../../../../db/schema";
 import { normalizeRoomCode } from "../../../../server/game-service";
 import { title } from "../../../../utils/title";
-
-export const useAnonymousUserName = routeLoader$(
-  async (requestEvent) => await getUserName(requestEvent),
-);
 
 const findRoom = server$(async (code: string) => {
   const normalizedCode = normalizeRoomCode(code);
@@ -28,7 +26,6 @@ const findRoom = server$(async (code: string) => {
 });
 
 export default component$(() => {
-  const { name } = useAnonymousUserName().value;
   const nav = useNavigate();
   const roomCode = useSignal("");
   const isLoading = useSignal(false);
@@ -48,41 +45,22 @@ export default component$(() => {
     }
   });
   return (
-    <>
-      <div class="absolute top-4 right-4 text-xl capitalize select-none">
-        <p>👤 {name}</p>
-      </div>
-      <div class="flex h-full flex-col items-center justify-center gap-4 select-none">
-        <h1 class="text-8xl font-bold">{title}</h1>
-        <p class="text-xl">Enter the room code to join a game.</p>
-        <form onsubmit$={joinRoom} preventdefault:submit>
-          <div class="grid w-100 grid-cols-2 items-center justify-center gap-4">
-            <input
-              class="border-mk-blue bg-mk-white w-full rounded-md border px-4 py-2 text-center"
-              type="text"
-              placeholder="Enter room code"
-              value={roomCode.value}
-              oninput$={(e) =>
-                (roomCode.value = (e.target as HTMLInputElement).value)
-              }
-              required
-            />
-            <Button type="submit" isLoading={isLoading.value}>
-              Join Game
-            </Button>
-            {error.value && (
-              <p class="col-span-2 text-center text-xl text-red-500">
-                ⚠️
-                {error.value}
-              </p>
-            )}
-            <Link class="col-span-2" href="/">
-              <Button variant="secondary">Back</Button>
-            </Link>
-          </div>
-        </form>
-      </div>
-    </>
+    <div class="flex h-full flex-col items-center justify-center gap-4 select-none">
+      <Title />
+      <Subtitle text="Enter the room code to join a game." />
+      <form onsubmit$={joinRoom} preventdefault:submit>
+        <div class="grid w-100 grid-cols-2 items-center justify-center gap-4">
+          <Input value={roomCode} placeholder="Enter room code" required />
+          <Button type="submit" isLoading={isLoading.value}>
+            Join Game
+          </Button>
+          {error.value && <ErrorMessage message={error.value} />}
+          <Link class="col-span-2" href="/">
+            <Button variant="secondary">Back</Button>
+          </Link>
+        </div>
+      </form>
+    </div>
   );
 });
 

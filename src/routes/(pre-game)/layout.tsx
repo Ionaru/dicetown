@@ -2,7 +2,7 @@ import { component$, Slot } from "@builder.io/qwik";
 import { Link, routeLoader$ } from "@builder.io/qwik-city";
 
 import { getUserName } from "../../auth/username";
-import Footer from "../../components/starter/footer/footer";
+import Footer from "../../components/starter/footer/PageFooter";
 
 // export const useServerTimeLoader = routeLoader$(() => {
 //   return {

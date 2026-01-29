@@ -6,7 +6,9 @@ import {
   type DocumentHead,
 } from "@builder.io/qwik-city";
 
-import Button from "../../components/common/button";
+import Title from "../../components/common/MainTitle";
+import Button from "../../components/common/StandardButton";
+import Subtitle from "../../components/common/SubTitle";
 import { createRoom } from "../../server/game-service";
 import { rollDice } from "../../server/secure-random";
 import { title } from "../../utils/title";
@@ -38,8 +40,8 @@ export default component$(() => {
 
   return (
     <div class="flex h-full flex-col items-center justify-center gap-4 select-none">
-      <h1 class="text-8xl font-bold">{title}</h1>
-      <p class="text-xl">Roll your dice, earn coins, and expand your town!</p>
+      <Title />
+      <Subtitle text="Roll your dice, earn coins, and expand your town!" />
       <div class="grid w-100 grid-cols-2 items-center justify-center gap-4">
         <Button onClick$={createRoom} isLoading={isLoading.value}>
           Create Game

@@ -6,7 +6,7 @@ import { title } from "../../utils/title";
 /**
  * The RouterHead component is placed inside of the document `<head>` element.
  */
-export const RouterHead = component$(() => {
+export default component$(() => {
   const head = useDocumentHead();
   const loc = useLocation();
 
