@@ -26,6 +26,7 @@ import {
 } from "../game";
 import { rollDie, rollDice } from "./secure-random";
 import { RoomStatus, TurnPhase } from "../utils/enums";
+import { SessionContext } from "../auth/session";
 
 const MAX_PLAYERS = 5;
 const ROOM_CODE_LENGTH = 5;
@@ -53,8 +54,13 @@ type DbExecutor = Pick<typeof db, "query" | "update">;
 export const normalizeRoomCode = (code: string): string =>
   code.trim().toUpperCase();
 
-export const createRoom = async (hostId: string): Promise<string> => {
+export const createRoom = async (session: SessionContext['session']): Promise<string> => {
   const code = await generateRoomCode();
+
+  const hostId = session.userId ?? session.anonymousUserId;
+  if (!hostId) {
+    throw new Error("User not found");
+  }
 
   const room = await db
     .insert(rooms)
@@ -66,14 +72,19 @@ export const createRoom = async (hostId: string): Promise<string> => {
     throw new Error("Failed to create room");
   }
 
+  await db.insert(players).values({
+    roomId,
+    userId: session.userId,
+    anonymousUserId: session.anonymousUserId,
+    isAi: false,
+    turnOrder: 1,
+  });
+
   return code;
 };
 
-export const joinRoom = async (input: {
-  code: string;
-  name: string;
-}): Promise<{ code: string; playerId: string }> => {
-  const normalizedCode = normalizeRoomCode(input.code);
+export const joinRoom = async (session: SessionContext['session'], code: string): Promise<{ code: string; playerId: string }> => {
+  const normalizedCode = normalizeRoomCode(code);
   const room = await db.query.rooms.findFirst({
     where: eq(rooms.code, normalizedCode),
   });
@@ -92,10 +103,25 @@ export const joinRoom = async (input: {
     throw new Error("Room is full");
   }
 
+  // Check if the user is already in the room
+  const existingPlayer = existingPlayers.find(
+    // NULL === NULL
+    (player) => {
+      if (session.userId) {
+        return player.userId === session.userId;
+      }
+      return player.anonymousUserId === session.anonymousUserId;
+    },
+  );
+  if (existingPlayer) {
+    return { code: room.code, playerId: existingPlayer.id };
+  }
+
   const turnOrder = existingPlayers.length + 1;
   const player = await createPlayer({
     roomId: room.id,
-    name: input.name,
+    userId: session.userId,
+    anonymousUserId: session.anonymousUserId,
     isAi: false,
     turnOrder,
   });
@@ -578,7 +604,8 @@ const generateRoomCode = async (): Promise<string> => {
 
 const createPlayer = async (input: {
   roomId: string;
-  name: string;
+  userId: string | null;
+  anonymousUserId: string | null;
   isAi: boolean;
   turnOrder: number;
 }) => {
@@ -586,7 +613,8 @@ const createPlayer = async (input: {
     .insert(players)
     .values({
       roomId: input.roomId,
-      name: input.name,
+      userId: input.userId,
+      anonymousUserId: input.anonymousUserId,
       isAi: input.isAi,
       coins: STARTING_COINS,
       cards: STARTING_CARDS,
@@ -595,7 +623,6 @@ const createPlayer = async (input: {
     })
     .returning({
       id: players.id,
-      name: players.name,
       turnOrder: players.turnOrder,
     });
 
@@ -635,7 +662,7 @@ const toPlayerState = (
   row: typeof players.$inferSelect,
 ): RoomSnapshot["players"][number] => ({
   id: row.id,
-  name: row.name,
+  name: row.userId ?? row.anonymousUserId ?? "Unknown player",
   coins: row.coins,
   cards: (row.cards ?? {}) as Partial<Record<EstablishmentId, number>>,
   landmarks: (row.landmarks ?? {}) as Partial<Record<LandmarkId, boolean>>,

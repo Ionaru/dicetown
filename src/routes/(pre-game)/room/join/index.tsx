@@ -7,6 +7,7 @@ import {
 } from "@builder.io/qwik-city";
 import { eq } from "drizzle-orm/pg-core/expressions";
 
+import { getSessionContext } from "../../../../auth/session";
 import ErrorMessage from "../../../../components/common/ErrorMessage";
 import Title from "../../../../components/common/MainTitle";
 import Button from "../../../../components/common/StandardButton";
@@ -14,7 +15,7 @@ import Subtitle from "../../../../components/common/SubTitle";
 import Input from "../../../../components/common/TextInput";
 import { db } from "../../../../db/db";
 import { rooms } from "../../../../db/schema";
-import { normalizeRoomCode } from "../../../../server/game-service";
+import { joinRoom, normalizeRoomCode } from "../../../../server/game-service";
 import { title } from "../../../../utils/title";
 
 const findRoom = server$(async (code: string) => {
@@ -23,6 +24,11 @@ const findRoom = server$(async (code: string) => {
     where: eq(rooms.code, normalizedCode),
   });
   return room;
+});
+
+const joinRoomAction = server$(async function (code: string) {
+  const { session } = await getSessionContext(this);
+  return await joinRoom(session, code);
 });
 
 export default component$(() => {
@@ -39,7 +45,12 @@ export default component$(() => {
     }
     try {
       isLoading.value = true;
-      await nav(`/room/${roomCode.value}/`);
+      const { code, playerId } = await joinRoomAction(roomCode.value);
+      if (!code || !playerId) {
+        error.value = "Failed to join room";
+        return;
+      }
+      await nav(`/room/${code}/`);
     } finally {
       isLoading.value = false;
     }

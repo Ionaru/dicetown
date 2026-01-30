@@ -28,17 +28,16 @@ export const getUserName = async (
   };
 };
 
-export const getUserNameFromId = async (
-  id: string,
-): Promise<{ name: string; sessionId: string }> => {
+export const getUserNameFromId = async (id: string): Promise<string> => {
   const user = await db.query.users.findFirst({
     where: eq(users.id, id),
   });
   if (user) {
-    return { name: user.displayName ?? "Unknown", sessionId: id };
+    return user.displayName ?? "Unknown user";
   }
+
   const anonymousUser = await db.query.anonymousUsers.findFirst({
     where: eq(anonymousUsers.id, id),
   });
-  return { name: anonymousUser?.name ?? "Unknown", sessionId: id };
+  return anonymousUser?.name ?? "Unknown user";
 };

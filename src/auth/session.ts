@@ -1,8 +1,14 @@
-import type { RequestEventBase } from "@builder.io/qwik-city";
-import { and, eq, gt } from "drizzle-orm/pg-core/expressions";
+import type { CookieOptions, RequestEventBase } from "@builder.io/qwik-city";
 import { animals, uniqueNamesGenerator } from "unique-names-generator";
 
 import { db } from "../db/db";
+import {
+  Q_createSession,
+  Q_expireSession,
+  Q_getSessionFromId,
+  Q_setSessionData,
+  Q_updateSession,
+} from "../db/queries/sessions";
 import { anonymousUsers, sessions } from "../db/schema";
 
 import { sessionTtlSeconds } from "./config";
@@ -12,10 +18,10 @@ export const SESSION_COOKIE_NAME = "sessionId";
 
 const sessionTtlMs = sessionTtlSeconds * 1000;
 
-const sessionCookieOptions = (event: RequestEventBase) => ({
+const sessionCookieOptions = (event: RequestEventBase): CookieOptions => ({
   path: "/",
   httpOnly: true,
-  sameSite: "lax" as const,
+  sameSite: "strict",
   secure: event.url.protocol === "https:",
   maxAge: sessionTtlSeconds,
 });
@@ -43,18 +49,13 @@ const createSession = async (input: {
 }) => {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + sessionTtlMs);
-  const [session] = await db
-    .insert(sessions)
-    .values({
-      anonymousUserId: input.anonymousUserId,
-      userId: input.userId ?? null,
-      data: input.data ?? {},
-      lastSeenAt: now,
-      expiresAt,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning();
+  const [session] = await Q_createSession.execute({
+    anonymousUserId: input.anonymousUserId,
+    userId: input.userId ?? null,
+    data: input.data ?? {},
+    now,
+    expiresAt,
+  });
   return session;
 };
 
@@ -64,10 +65,10 @@ const setSessionCookie = (event: RequestEventBase, sessionId: string) => {
 
 const expireSession = async (sessionId: string) => {
   const now = new Date();
-  await db
-    .update(sessions)
-    .set({ expiresAt: now, updatedAt: now })
-    .where(eq(sessions.id, sessionId));
+  await Q_expireSession.execute({
+    id: sessionId,
+    now,
+  });
 };
 
 export type SessionContext = {
@@ -83,15 +84,11 @@ export const getOrCreateSession = async (
   if (existingSessionId) {
     const session = await getSessionFromId(existingSessionId);
     if (session && !isExpired(session, now)) {
-      const updated = await db
-        .update(sessions)
-        .set({
-          lastSeenAt: now,
-          expiresAt: new Date(now.getTime() + sessionTtlMs),
-          updatedAt: now,
-        })
-        .where(eq(sessions.id, session.id))
-        .returning();
+      const updated = await Q_updateSession.execute({
+        id: session.id,
+        now,
+        expiresAt: new Date(now.getTime() + sessionTtlMs),
+      });
       const refreshed = updated[0] ?? session;
       setSessionCookie(event, refreshed.id);
       return { session: refreshed, isNew: false };
@@ -149,11 +146,11 @@ export const logoutToAnonymous = async (
 
 export const setSessionData = async (sessionId: string, data: SessionData) => {
   const now = new Date();
-  const [session] = await db
-    .update(sessions)
-    .set({ data, updatedAt: now })
-    .where(eq(sessions.id, sessionId))
-    .returning();
+  const [session] = await Q_setSessionData.execute({
+    id: sessionId,
+    data,
+    updatedAt: now,
+  });
   return session ?? null;
 };
 
@@ -190,6 +187,4 @@ export const clearSessionDataKeys = async (
 export const getSessionFromId = (
   sessionId: string,
 ): Promise<typeof sessions.$inferSelect | undefined> =>
-  db.query.sessions.findFirst({
-    where: and(eq(sessions.id, sessionId), gt(sessions.expiresAt, new Date())),
-  });
+  Q_getSessionFromId.execute({ id: sessionId });

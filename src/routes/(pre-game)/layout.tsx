@@ -34,10 +34,6 @@ export default component$(() => {
         </div>
         <Slot />
       </main>
-      <div
-        id="dice-box"
-        class="pointer-events-none fixed top-0 left-0 h-full w-full"
-      ></div>
       <Footer />
     </>
   );

@@ -6,6 +6,7 @@ import {
   type DocumentHead,
 } from "@builder.io/qwik-city";
 
+import { getSessionContext } from "../../auth/session";
 import Title from "../../components/common/MainTitle";
 import Button from "../../components/common/StandardButton";
 import Subtitle from "../../components/common/SubTitle";
@@ -13,25 +14,23 @@ import { createRoom } from "../../server/game-service";
 import { rollDice } from "../../server/secure-random";
 import { title } from "../../utils/title";
 
-import { useAnonymousUserName } from "./layout";
-
 export const serverRollDice = server$(async () => {
   const [firstNumber, secondNumber] = rollDice(2, 6);
   return `${firstNumber},${secondNumber}`;
 });
 
-const createRoomAction = server$(
-  async (hostId: string) => await createRoom(hostId),
-);
+const createRoomAction = server$(async function () {
+  const { session } = await getSessionContext(this);
+  return await createRoom(session);
+});
 
 export default component$(() => {
-  const { sessionId } = useAnonymousUserName().value;
   const nav = useNavigate();
   const isLoading = useSignal(false);
   const createRoom = $(async () => {
     try {
       isLoading.value = true;
-      const code = await createRoomAction(sessionId);
+      const code = await createRoomAction();
       await nav(`/room/${code}/`);
     } finally {
       isLoading.value = false;

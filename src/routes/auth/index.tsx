@@ -299,13 +299,16 @@ export default component$(() => {
   return (
     <div class="flex h-full flex-col items-center justify-center gap-4 select-none">
       <Subtitle text={`Welcome to ${title}`} />
-      <SmallTitle title={`👤 ${anonymousUserName.name}`} />
+      <SmallTitle text={`👤 ${anonymousUserName.name}`} />
       {authState.isLoggedIn ? (
         <>
           <Subtitle text="Here you can add a passkey or log out" />
           <div class="grid w-100 grid-cols-2 items-center justify-center gap-4">
             <Button onClick$={handleAddPasskey}>Add passkey</Button>
             <Button onClick$={handleLogout}>Log out</Button>
+            {errorMessage.value && (
+              <ErrorMessage message={errorMessage.value} />
+            )}
             <Link class="col-span-2" href="/">
               <Button variant="secondary">Go back</Button>
             </Link>
@@ -319,13 +322,15 @@ export default component$(() => {
             <Link href="/auth/create/">
               <Button>Create an account</Button>
             </Link>
+            {errorMessage.value && (
+              <ErrorMessage message={errorMessage.value} />
+            )}
             <Link class="col-span-2" href="/">
               <Button variant="secondary">Go back</Button>
             </Link>
           </div>
         </>
       )}
-      {errorMessage.value && <ErrorMessage message={errorMessage.value} />}
     </div>
   );
 });

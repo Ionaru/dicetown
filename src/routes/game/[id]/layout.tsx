@@ -1,10 +1,16 @@
 import { component$, Slot } from "@builder.io/qwik";
 
+import DiceBox from "../../../components/game/DiceBox";
+import Footer from "../../../components/starter/footer/PageFooter";
+
 export default component$(() => {
   return (
-    <section>
-      <p>Game Layout</p>
-      <Slot />
-    </section>
+    <>
+      <DiceBox />
+      <main>
+        <Slot />
+      </main>
+      <Footer />
+    </>
   );
 });

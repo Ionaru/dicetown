@@ -134,7 +134,10 @@ export const players = pgTable(
     userId: uuid("user_id").references(() => users.id, {
       onDelete: "set null",
     }),
-    name: text("name").notNull(),
+    anonymousUserId: uuid("anonymous_user_id").references(
+      () => anonymousUsers.id,
+      { onDelete: "set null" },
+    ),
     isAi: boolean("is_ai").notNull().default(false),
     coins: integer("coins").notNull().default(0),
     cards: jsonb("cards")
