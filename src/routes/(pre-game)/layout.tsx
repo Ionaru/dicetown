@@ -1,31 +1,29 @@
 import { component$, Slot } from "@builder.io/qwik";
 import { Link, routeLoader$ } from "@builder.io/qwik-city";
 
-import { getUserName } from "../../auth/username";
-import Footer from "../../components/starter/footer/PageFooter";
-
-// export const useServerTimeLoader = routeLoader$(() => {
-//   return {
-//     date: new Date().toISOString(),
-//   };
-// });
-
-// export const useDBTest = routeLoader$(async (requestEv) => {
-//   const supabaseClient = createServerClient(
-//     requestEv.env.get("PUBLIC_SUPABASE_URL")!,
-//     requestEv.env.get("PUBLIC_SUPABASE_ANON_KEY")!,
-//     requestEv,
-//   );
-//   const { data } = await supabaseClient.from("test").select("*");
-//   return { data };
-// });
+import { getSessionContext } from "../../auth/session";
+import { getUserFromId, getUserName } from "../../auth/username";
+import Footer from "../../components/core/PageFooter";
 
 export const useAnonymousUserName = routeLoader$(
   async (requestEvent) => await getUserName(requestEvent),
 );
 
+export const useSession = routeLoader$(
+  async (requestEvent) => await getSessionContext(requestEvent),
+);
+
+export const useUser = routeLoader$(async (requestEvent) => {
+  const { session } = await requestEvent.resolveValue(useSession);
+  return await getUserFromId(session.userId ?? session.anonymousUserId);
+});
+
 export default component$(() => {
-  const { name } = useAnonymousUserName().value;
+  const user = useUser().value;
+  const name =
+    user && "displayName" in user
+      ? user.displayName
+      : (user?.name ?? "Unknown");
   return (
     <>
       <main>

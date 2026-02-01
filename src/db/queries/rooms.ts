@@ -1,11 +1,10 @@
-import { asc, sql } from "drizzle-orm";
-import { eq } from "drizzle-orm/pg-core/expressions";
+import { asc, sql, eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { players, rooms } from "../schema";
 import { registerPreparedQuery } from "../utils";
 
-export const findRoomFromCodeWithPlayers = registerPreparedQuery<{
+export const Q_findRoomFromCodeWithPlayers = registerPreparedQuery<{
   code: string;
 }>()(
   db.query.rooms
@@ -18,4 +17,17 @@ export const findRoomFromCodeWithPlayers = registerPreparedQuery<{
       },
     })
     .prepare("findRoomFromCodeWithPlayers"),
+);
+
+export const Q_findRoomWithPlayersById = registerPreparedQuery<{
+  id: string;
+}>()(
+  db.query.rooms
+    .findFirst({
+      where: eq(rooms.id, sql.placeholder("id")),
+      with: {
+        players: true,
+      },
+    })
+    .prepare("Q_findRoomWithPlayersById"),
 );

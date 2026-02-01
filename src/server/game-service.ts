@@ -4,6 +4,9 @@ import { gameState, players, rooms } from "../db/schema";
 import {
   ESTABLISHMENTS,
   LANDMARKS,
+  MAX_PLAYERS,
+  ROOM_CODE_ALPHABET,
+  ROOM_CODE_LENGTH,
   STARTING_CARDS,
   STARTING_COINS,
   applyPendingDecision,
@@ -27,10 +30,7 @@ import {
 import { rollDie, rollDice } from "./secure-random";
 import { RoomStatus, TurnPhase } from "../utils/enums";
 import { SessionContext } from "../auth/session";
-
-const MAX_PLAYERS = 5;
-const ROOM_CODE_LENGTH = 5;
-const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+import { Q_insertPlayer } from "../db/queries/players";
 
 export type RoomSnapshot = {
   room: {
@@ -602,6 +602,39 @@ const generateRoomCode = async (): Promise<string> => {
   throw new Error("Unable to generate unique room code");
 };
 
+export const addAiPlayer = async (roomId: string): Promise<void> => {
+  const room = await db.query.rooms.findFirst({
+    where: eq(rooms.id, roomId),
+    with: {
+      players:true,
+    },
+  });
+  if (!room) {
+    throw new Error("Room not found");
+  }
+
+  if (room.status !== "waiting") {
+    throw new Error("Room already started");
+  }
+
+  if (room.players.length >= MAX_PLAYERS) {
+    throw new Error("Room is full");
+  }
+
+  const turnOrder = room.players.length + 1;
+  await createPlayer({
+    roomId,
+    userId: null,
+    anonymousUserId: null,
+    isAi: true,
+    turnOrder,
+  });
+};
+
+export const removeAiPlayer = async (playerId: string): Promise<void> => {
+  await db.delete(players).where(eq(players.id, playerId));
+};
+
 const createPlayer = async (input: {
   roomId: string;
   userId: string | null;
@@ -609,22 +642,13 @@ const createPlayer = async (input: {
   isAi: boolean;
   turnOrder: number;
 }) => {
-  const result = await db
-    .insert(players)
-    .values({
-      roomId: input.roomId,
-      userId: input.userId,
-      anonymousUserId: input.anonymousUserId,
-      isAi: input.isAi,
-      coins: STARTING_COINS,
-      cards: STARTING_CARDS,
-      landmarks: {},
-      turnOrder: input.turnOrder,
-    })
-    .returning({
-      id: players.id,
-      turnOrder: players.turnOrder,
-    });
+  const result = await Q_insertPlayer.execute({
+    roomId: input.roomId,
+    userId: input.userId,
+    anonymousUserId: input.anonymousUserId,
+    isAi: input.isAi,
+    turnOrder: input.turnOrder,
+  });
 
   const player = result[0];
   if (!player) {

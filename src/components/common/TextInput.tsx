@@ -9,8 +9,7 @@ export default component$<{
     class="border-mk-blue bg-mk-white w-full rounded-md border px-4 py-2 text-center"
     type="text"
     placeholder={placeholder}
-    value={value.value}
-    oninput$={(e) => (value.value = (e.target as HTMLInputElement).value)}
+    bind:value={value}
     required={required}
   />
 ));

@@ -230,3 +230,8 @@ export const STARTING_CARDS: Partial<Record<EstablishmentId, number>> = {
   "wheat-field": 1,
   bakery: 1,
 };
+
+export const MAX_PLAYERS = 5;
+export const MIN_PLAYERS = 2;
+export const ROOM_CODE_LENGTH = 5;
+export const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";

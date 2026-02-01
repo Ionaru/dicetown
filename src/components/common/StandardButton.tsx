@@ -4,7 +4,9 @@ interface ButtonProps {
   onClick$?: QRL<() => void> | null;
   variant?: "primary" | "secondary";
   isLoading?: boolean;
+  disabled?: boolean;
   type?: "button" | "submit" | "reset";
+  class?: string;
 }
 
 export default component$<ButtonProps>(
@@ -13,6 +15,8 @@ export default component$<ButtonProps>(
     onClick$ = null,
     isLoading = false,
     type = "button",
+    class: className = "",
+    disabled = false,
   }) => {
     let classes =
       variant === "primary"
@@ -21,9 +25,12 @@ export default component$<ButtonProps>(
     if (isLoading) {
       classes += " opacity-50 pointer-events-none";
     }
+    if (disabled) {
+      classes += " opacity-50 pointer-events-none";
+    }
     return (
       <button
-        class={`${classes} font-junegull w-full cursor-pointer rounded-md px-4 py-2 transition hover:scale-105`}
+        class={`${classes} font-junegull w-full cursor-pointer rounded-md px-4 py-2 transition hover:scale-105 ${className}`}
         onclick$={isLoading ? null : onClick$}
         type={type}
       >

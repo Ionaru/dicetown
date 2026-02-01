@@ -1,6 +1,7 @@
 import { $, component$, useSignal } from "@builder.io/qwik";
 import {
   Link,
+  routeLoader$,
   server$,
   useNavigate,
   type DocumentHead,
@@ -17,6 +18,9 @@ import { db } from "../../../../db/db";
 import { rooms } from "../../../../db/schema";
 import { joinRoom, normalizeRoomCode } from "../../../../server/game-service";
 import { title } from "../../../../utils/title";
+import { navigateToRoom } from "../../guards";
+
+export const usePlayerRoom = routeLoader$((requestEvent) => navigateToRoom(requestEvent));
 
 const findRoom = server$(async (code: string) => {
   const normalizedCode = normalizeRoomCode(code);
