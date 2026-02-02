@@ -6,15 +6,17 @@ import { useSession } from "./layout";
 
 export const navigateToRoom = async (requestEvent: RequestEventLoader) => {
   const { session } = await requestEvent.resolveValue(useSession);
+  let code: string | undefined;
   try {
     const player = await Q_findPlayerWithRoomById.execute({
       id: session.userId ?? session.anonymousUserId,
     });
-    if (player?.room.code) {
-      throw requestEvent.redirect(302, `/room/${player.room.code}`);
-    }
+    code = player?.room.code;
   } catch (error) {
     console.error(error);
+  }
+  if (code) {
+    throw requestEvent.redirect(302, `/room/${code}`);
   }
 };
 
