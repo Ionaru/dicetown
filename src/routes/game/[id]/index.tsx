@@ -47,16 +47,13 @@ export const usePlayer = routeLoader$(async (requestEvent) => {
   );
 });
 
-export const serverRollDice = server$((code, playerId, diceCount = 1) =>
+const rollDice$ = server$((code, playerId, diceCount = 1) =>
   rollDiceForTurn({ code, playerId, diceCount }),
 );
-export const serverBuyEstablishment = server$(
-  (code, playerId, establishmentId) =>
-    buyEstablishmentForTurn({ code, playerId, establishmentId }),
+const buyEstablishmnent$ = server$((code, playerId, establishmentId) =>
+  buyEstablishmentForTurn({ code, playerId, establishmentId }),
 );
-export const serverEndTurn = server$((code, playerId) =>
-  endTurn({ code, playerId }),
-);
+const endTurn$ = server$((code, playerId) => endTurn({ code, playerId }));
 
 export default component$(() => {
   const diceBox = useSignal<DiceBox | null>(null);
@@ -161,18 +158,11 @@ export default component$(() => {
   );
   const isMyTurn = currentTurnPlayer?.id === me?.id;
 
-  const rollDiceAction = $(async () => {
-    const amount = 1;
-    await serverRollDice(room.code, me?.id, amount);
-  });
-
-  const buyEstablishmentAction = $(async () => {
-    await serverBuyEstablishment(room.code, me?.id, "business-center");
-  });
-
-  const endTurnAction = $(async () => {
-    await serverEndTurn(room.code, me?.id);
-  });
+  const rollDiceAction = $(() => rollDice$(room.code, me?.id, 1));
+  const buyEstablishmentAction = $(() =>
+    buyEstablishmnent$(room.code, me?.id, "business-center"),
+  );
+  const endTurnAction = $(() => endTurn$(room.code, me?.id));
 
   return (
     <div>
