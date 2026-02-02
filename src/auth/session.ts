@@ -1,4 +1,4 @@
-import type { CookieOptions, RequestEventBase } from "@builder.io/qwik-city";
+import type { CookieOptions, RequestEventBase } from "@qwik.dev/router";
 import { animals, uniqueNamesGenerator } from "unique-names-generator";
 
 import { db } from "../db/db";

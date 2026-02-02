@@ -1,4 +1,4 @@
-import { component$, Signal } from "@builder.io/qwik";
+import { component$, Signal } from "@qwik.dev/core";
 
 export default component$<{
   value: Signal<string>;

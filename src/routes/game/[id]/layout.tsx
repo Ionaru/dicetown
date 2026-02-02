@@ -1,4 +1,4 @@
-import { component$, Slot } from "@builder.io/qwik";
+import { component$, Slot } from "@qwik.dev/core";
 
 import Footer from "../../../components/core/PageFooter";
 import DiceBox from "../../../components/game/DiceBox";

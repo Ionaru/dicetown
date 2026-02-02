@@ -4,13 +4,8 @@ import {
   useSignal,
   useTask$,
   useVisibleTask$,
-} from "@builder.io/qwik";
-import {
-  Link,
-  routeLoader$,
-  server$,
-  useNavigate,
-} from "@builder.io/qwik-city";
+} from "@qwik.dev/core";
+import { Link, routeLoader$, server$, useNavigate } from "@qwik.dev/router";
 import { eq } from "drizzle-orm/pg-core/expressions";
 
 import { getSessionContext } from "../../../../auth/session";

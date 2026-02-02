@@ -1,4 +1,4 @@
-import { component$ } from "@builder.io/qwik";
+import { component$ } from "@qwik.dev/core";
 
 export default component$<{ text: string; class?: string }>(
   ({ text: title, class: className }) => (

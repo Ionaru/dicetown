@@ -8,15 +8,15 @@
  * - https://bun.sh/docs/api/http
  *
  */
-import { createQwikCity } from "@builder.io/qwik-city/middleware/bun";
-import qwikCityPlan from "@qwik-city-plan";
+import qwikRouterConfig from "@qwik-router-config";
+import { createQwikRouter } from "@qwik.dev/router/middleware/bun";
 
 import render from "./entry.ssr";
 
 // Create the Qwik City Bun middleware
-const { router, notFound, staticFile } = createQwikCity({
+const { router, notFound, staticFile } = createQwikRouter({
   render,
-  qwikCityPlan,
+  qwikRouterConfig,
   static: {
     cacheControl: "public, max-age=31536000, immutable",
   },

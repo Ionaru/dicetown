@@ -1,5 +1,5 @@
-import { component$, Slot } from "@builder.io/qwik";
-import { routeLoader$ } from "@builder.io/qwik-city";
+import { component$, Slot } from "@qwik.dev/core";
+import { routeLoader$ } from "@qwik.dev/router";
 
 import { getUserName } from "../../auth/username";
 import Footer from "../../components/core/PageFooter";

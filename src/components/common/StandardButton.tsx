@@ -1,4 +1,4 @@
-import { component$, QRL, Slot } from "@builder.io/qwik";
+import { component$, QRL, Slot } from "@qwik.dev/core";
 
 interface ButtonProps {
   onClick$?: QRL<() => void> | null;

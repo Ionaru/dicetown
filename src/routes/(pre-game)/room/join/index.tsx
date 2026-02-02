@@ -1,11 +1,11 @@
-import { $, component$, useSignal } from "@builder.io/qwik";
+import { $, component$, useSignal } from "@qwik.dev/core";
 import {
   Link,
   routeLoader$,
   server$,
   useNavigate,
   type DocumentHead,
-} from "@builder.io/qwik-city";
+} from "@qwik.dev/router";
 import { eq } from "drizzle-orm/pg-core/expressions";
 
 import { getSessionContext } from "../../../../auth/session";

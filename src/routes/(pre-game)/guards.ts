@@ -1,4 +1,4 @@
-import { RequestEventLoader } from "@builder.io/qwik-city";
+import { RequestEventLoader } from "@qwik.dev/router";
 
 import { Q_findPlayerWithRoomById } from "../../db/queries/players";
 

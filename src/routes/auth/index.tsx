@@ -1,5 +1,5 @@
-import { $, component$, useSignal } from "@builder.io/qwik";
-import { Link, routeAction$, routeLoader$ } from "@builder.io/qwik-city";
+import { $, component$, useSignal } from "@qwik.dev/core";
+import { Link, routeAction$, routeLoader$ } from "@qwik.dev/router";
 import {
   startAuthentication as startBrowserAuthentication,
   startRegistration as startBrowserRegistration,

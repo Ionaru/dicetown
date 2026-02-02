@@ -7,8 +7,8 @@ import {
   useStore,
   useTask$,
   useVisibleTask$,
-} from "@builder.io/qwik";
-import { Link, routeLoader$, server$ } from "@builder.io/qwik-city";
+} from "@qwik.dev/core";
+import { Link, routeLoader$, server$ } from "@qwik.dev/router";
 
 import { getSessionContext } from "../../../auth/session";
 import { supabase } from "../../../client/supabase";

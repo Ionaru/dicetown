@@ -1,5 +1,5 @@
-import { component$, Slot } from "@builder.io/qwik";
-import { Link, routeLoader$ } from "@builder.io/qwik-city";
+import { component$, Slot } from "@qwik.dev/core";
+import { Link, routeLoader$ } from "@qwik.dev/router";
 
 import { getSessionContext } from "../../auth/session";
 import { getUserFromId, getUserName } from "../../auth/username";

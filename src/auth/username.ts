@@ -1,4 +1,4 @@
-import { RequestEventBase } from "@builder.io/qwik-city";
+import { RequestEventBase } from "@qwik.dev/router";
 
 import { Q_getAnonymousUserById } from "../db/queries/anonymous-users";
 import { Q_getUserById } from "../db/queries/users";

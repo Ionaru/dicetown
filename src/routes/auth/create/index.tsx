@@ -1,10 +1,10 @@
-import { $, component$, useSignal } from "@builder.io/qwik";
+import { $, component$, useSignal } from "@qwik.dev/core";
 import {
   Link,
   RequestEvent,
   routeAction$,
   useNavigate,
-} from "@builder.io/qwik-city";
+} from "@qwik.dev/router";
 import { startRegistration as startBrowserRegistration } from "@simplewebauthn/browser";
 
 import { attachUserToSession, getSessionContext } from "../../../auth/session";
