@@ -35,10 +35,12 @@ export const createInitialMarketState = (): MarketState => ({
 
 export const createInitialPlayerState = (
   id: PlayerId,
-  name: string,
+  userId: string | null,
+  anonymousUserId: string | null,
 ): PlayerState => ({
   id,
-  name,
+  userId,
+  anonymousUserId,
   coins: STARTING_COINS,
   cards: { ...STARTING_CARDS },
   landmarks: {},
@@ -298,7 +300,7 @@ const applyRedCards = (
           cardId: establishment.id as EstablishmentId,
         });
         log.push(
-          `${player.name} receives ${paid} coin(s) from ${establishment.name}.`,
+          `${player.id} receives ${paid} coin(s) from ${establishment.name}.`,
         );
       }
     }
@@ -416,7 +418,7 @@ const applyBankPayouts = (
       reason: `${establishment.name} activation`,
       cardId: establishment.id as EstablishmentId,
     });
-    log.push(`${player.name} gains ${payout} coin(s) from the bank.`);
+    log.push(`${player.id} gains ${payout} coin(s) from the bank.`);
   }
 };
 
@@ -467,7 +469,7 @@ const applyStadium = (
         cardId: establishment.id as EstablishmentId,
       });
       log.push(
-        `${getPlayer(state, activePlayerId).name} receives ${paid} coin(s) from ${player.name}.`,
+        `${getPlayer(state, activePlayerId).id} receives ${paid} coin(s) from ${player.id}.`,
       );
     }
   }
@@ -497,7 +499,7 @@ const applyTvStationDecision = (
       reason: `${establishment.name} activation`,
       cardId: establishment.id as EstablishmentId,
     });
-    log.push(`${owner.name} takes ${paid} coin(s) from ${target.name}.`);
+    log.push(`${owner.id} takes ${paid} coin(s) from ${target.id}.`);
   }
 };
 
@@ -531,7 +533,7 @@ const applyBusinessCenterDecision = (
     cardId: "business-center",
   });
   log.push(
-    `${owner.name} swaps ${ESTABLISHMENTS[decision.giveCardId].name} with ${target.name}'s ${ESTABLISHMENTS[decision.takeCardId].name}.`,
+    `${owner.id} swaps ${ESTABLISHMENTS[decision.giveCardId].name} with ${target.id}'s ${ESTABLISHMENTS[decision.takeCardId].name}.`,
   );
 };
 

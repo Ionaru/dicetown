@@ -4,45 +4,66 @@ import {
   component$,
   useContextProvider,
   useSignal,
+  useStore,
+  useTask$,
   useVisibleTask$,
 } from "@builder.io/qwik";
 import { Link, routeLoader$, server$ } from "@builder.io/qwik-city";
 
+import { getSessionContext } from "../../../auth/session";
+import { supabase } from "../../../client/supabase";
 import SmallTitle from "../../../components/common/SmallTitle";
 import StandardButton from "../../../components/common/StandardButton";
 import SubTitle from "../../../components/common/SubTitle";
 import { DiceBoxContext } from "../../../context/dice-box";
-import { getRoomSnapshot } from "../../../server/game-service";
-import { rollDice } from "../../../server/secure-random";
+import { gameState } from "../../../db/schema";
+import { mapRowToTable } from "../../../db/utils";
+import {
+  buyEstablishmentForTurn,
+  endTurn,
+  getRoomSnapshot,
+  rollDiceForTurn,
+} from "../../../server/game-service";
 
-export const useGame = routeLoader$(async ({ params }) => {
-  const snapshot = await getRoomSnapshot(params.id);
-  console.log("snapshot", snapshot);
-  return {
-    snapshot,
-  };
+const doDiceRoll = (diceBox: DiceBox, result: number[]) =>
+  new Promise<void>((resolve) => {
+    if (!diceBox) return;
+    diceBox.onRollComplete = () => {
+      diceBox?.clearDice();
+      resolve();
+    };
+    diceBox.roll(`${result.length}d6@${result.join(",")}`);
+  });
+
+export const useGame = routeLoader$(({ params }) => getRoomSnapshot(params.id));
+
+export const usePlayer = routeLoader$(async (requestEvent) => {
+  const { session } = await getSessionContext(requestEvent);
+  const snapshot = await requestEvent.resolveValue(useGame);
+  return snapshot?.players.find(
+    (player) =>
+      (session.userId && player.userId === session.userId) ||
+      player.anonymousUserId === session.anonymousUserId,
+  );
 });
 
-export const serverRollDice = server$((amount = 1) => rollDice(amount, 6));
+export const serverRollDice = server$((code, playerId, diceCount = 1) =>
+  rollDiceForTurn({ code, playerId, diceCount }),
+);
+export const serverBuyEstablishment = server$(
+  (code, playerId, establishmentId) =>
+    buyEstablishmentForTurn({ code, playerId, establishmentId }),
+);
+export const serverEndTurn = server$((code, playerId) =>
+  endTurn({ code, playerId }),
+);
 
 export default component$(() => {
   const diceBox = useSignal<DiceBox | null>(null);
-  useContextProvider(DiceBoxContext, diceBox);
+  const updateQueue = useStore<(typeof gameState.$inferSelect)[]>([]);
+  const snapshot = useGame().value;
+  const me = usePlayer().value;
 
-  // eslint-disable-next-line qwik/no-use-visible-task
-  useVisibleTask$(async () => {
-    const box = new DiceBox("#dice-box", {
-      sounds: true,
-      assetPath: "/dice-box/",
-      sound_dieMaterial: "plastic",
-      theme_material: "plastic",
-    });
-    await box.initialize();
-    console.debug("diceBox initialized");
-    diceBox.value = box;
-  });
-
-  const { snapshot } = useGame().value;
   if (!snapshot) {
     return (
       <div class="flex h-full flex-col items-center justify-center">
@@ -59,9 +80,30 @@ export default component$(() => {
 
   const room = snapshot.room;
   const players = snapshot.players;
-  const gameState = snapshot.gameState;
+  const gameSnapshot = useStore(snapshot);
 
-  if (!gameState) {
+  /**
+   * This task is responsible for updating the UI and handling UI events based on the game state.
+   * For example, showing a dice roll animation and visualizing the purchase of an establishment.
+   */
+  useTask$(async ({ track }) => {
+    const queue = track(updateQueue);
+    if (queue.length > 0) {
+      const updatedGameState = queue.at(0);
+      if (!updatedGameState) return;
+      if (
+        updatedGameState.phase === "buying" &&
+        !updatedGameState.hasPurchased
+      ) {
+        if (!diceBox.value) return;
+        await doDiceRoll(diceBox.value, updatedGameState.lastDiceRoll ?? []);
+      }
+      gameSnapshot.gameState = updatedGameState;
+      queue.shift();
+    }
+  });
+
+  if (!gameSnapshot.gameState) {
     return (
       <div class="flex h-full flex-col items-center justify-center">
         <SmallTitle text="Critical error" />
@@ -75,33 +117,85 @@ export default component$(() => {
     );
   }
 
-  const rollDiceAction = $(async () => {
-    const amount = 1;
-    const result = await serverRollDice(amount);
-    console.log("result", result);
-    if (!diceBox.value) return;
-    diceBox.value.onRollComplete = (result) => {
-      console.log("roll complete", result);
-      diceBox.value?.clearDice();
-    };
-    diceBox.value.roll(`${amount}d6@${result}`);
+  useContextProvider(DiceBoxContext, diceBox);
+
+  // eslint-disable-next-line qwik/no-use-visible-task
+  useVisibleTask$(async () => {
+    const box = new DiceBox("#dice-box", {
+      sounds: true,
+      assetPath: "/dice-box/",
+      sound_dieMaterial: "plastic",
+      theme_material: "plastic",
+    });
+    await box.initialize();
+    console.debug("diceBox initialized");
+    diceBox.value = box;
   });
 
-  const me = players.find((player) => player.id === gameState.currentTurnPlayerId);
-  const currentTurnPlayer = players.find((player) => player.id === gameState.currentTurnPlayerId);
+  // eslint-disable-next-line qwik/no-use-visible-task
+  useVisibleTask$(async ({ cleanup }) => {
+    const updateChannel = supabase
+      .channel(`game_state-update:${room.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "game_state",
+          filter: `room_id=eq.${room.id}`,
+        },
+        (payload) => {
+          const newState = mapRowToTable(gameState, payload.new);
+          updateQueue.push(newState);
+        },
+      )
+      .subscribe();
+
+    cleanup(() => {
+      updateChannel.unsubscribe();
+    });
+  });
+
+  const currentTurnPlayer = players.find(
+    (player) => player.id === gameSnapshot.gameState?.currentTurnPlayerId,
+  );
   const isMyTurn = currentTurnPlayer?.id === me?.id;
+
+  const rollDiceAction = $(async () => {
+    const amount = 1;
+    await serverRollDice(room.code, me?.id, amount);
+  });
+
+  const buyEstablishmentAction = $(async () => {
+    await serverBuyEstablishment(room.code, me?.id, "business-center");
+  });
+
+  const endTurnAction = $(async () => {
+    await serverEndTurn(room.code, me?.id);
+  });
 
   return (
     <div>
-      <h1>Game {snapshot?.room.code}</h1>
+      <pre>isMyTurn: {isMyTurn ? "true" : "false"}</pre>
+      <h1>Game {gameSnapshot.room.code}</h1>
       <ul>
         {Object.entries(me?.cards ?? {}).map(([card, count]) => (
-          <li key={card}>{card} x {count}</li>
+          <li key={card}>
+            {card} x {count}
+          </li>
         ))}
       </ul>
-      <StandardButton onClick$={rollDiceAction}>
-        Roll Dice
-      </StandardButton>
+      {isMyTurn && gameSnapshot.gameState?.phase === "rolling" && (
+        <StandardButton onClick$={rollDiceAction}>Roll Dice</StandardButton>
+      )}
+      {isMyTurn && gameSnapshot.gameState?.phase === "buying" && (
+        <>
+          <StandardButton onClick$={buyEstablishmentAction}>
+            Buy Establishment
+          </StandardButton>
+          <StandardButton onClick$={endTurnAction}>End turn</StandardButton>
+        </>
+      )}
     </div>
   );
 });

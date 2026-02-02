@@ -5,6 +5,7 @@ import {
   ESTABLISHMENTS,
   LANDMARKS,
   MAX_PLAYERS,
+  MIN_PLAYERS,
   ROOM_CODE_ALPHABET,
   ROOM_CODE_LENGTH,
   STARTING_CARDS,
@@ -181,11 +182,11 @@ export const startGame = async (code: string): Promise<RoomSnapshot> => {
     throw new Error("Game already started");
   }
 
-  if (snapshot.players.length < 2) {
-    throw new Error("At least two players are required");
+  if (snapshot.players.length < MIN_PLAYERS) {
+    throw new Error(`At least ${MIN_PLAYERS} players are required`);
   }
 
-  const firstPlayerId = snapshot.players[0]?.id;
+  const firstPlayerId = snapshot.players.at(0)?.id;
   if (!firstPlayerId) {
     throw new Error("No players found");
   }
@@ -686,7 +687,8 @@ const toPlayerState = (
   row: typeof players.$inferSelect,
 ): RoomSnapshot["players"][number] => ({
   id: row.id,
-  name: row.userId ?? row.anonymousUserId ?? "Unknown player",
+  userId: row.userId,
+  anonymousUserId: row.anonymousUserId,
   coins: row.coins,
   cards: (row.cards ?? {}) as Partial<Record<EstablishmentId, number>>,
   landmarks: (row.landmarks ?? {}) as Partial<Record<LandmarkId, boolean>>,

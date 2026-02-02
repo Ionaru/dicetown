@@ -17,7 +17,9 @@ import { title } from "../../utils/title";
 
 import { navigateToRoom } from "./guards";
 
-export const usePlayerRoom = routeLoader$((requestEvent) => navigateToRoom(requestEvent));
+export const usePlayerRoom = routeLoader$((requestEvent) =>
+  navigateToRoom(requestEvent),
+);
 
 export const serverRollDice = server$(async () => {
   const [firstNumber, secondNumber] = rollDice(2, 6);

@@ -37,7 +37,9 @@ import {
 import { getPlayerUsername } from "../../../../server/players";
 import { navigateToGame } from "../../guards";
 
-export const useGame = routeLoader$((requestEvent) => navigateToGame(requestEvent));
+export const useGame = routeLoader$((requestEvent) =>
+  navigateToGame(requestEvent),
+);
 
 const leaveRoom = async (playerId: string) => {
   await db.delete(players).where(eq(players.id, playerId));

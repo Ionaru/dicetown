@@ -4,7 +4,8 @@ export type PlayerId = string;
 
 export type PlayerState = {
   id: PlayerId;
-  name: string;
+  userId: string | null;
+  anonymousUserId: string | null;
   coins: number;
   cards: Partial<Record<EstablishmentId, number>>;
   landmarks: Partial<Record<LandmarkId, boolean>>;
