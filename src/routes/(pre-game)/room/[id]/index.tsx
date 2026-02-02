@@ -34,16 +34,40 @@ import {
   removeAiPlayer,
   startGame,
 } from "../../../../server/game-service";
-import { getPlayerUsername } from "../../../../server/players";
+import { getPlayerUsername, leaveRoom } from "../../../../server/players";
 import { navigateToGame } from "../../guards";
 
 export const useGame = routeLoader$((requestEvent) =>
   navigateToGame(requestEvent),
 );
 
-const leaveRoom = async (playerId: string) => {
-  await db.delete(players).where(eq(players.id, playerId));
-};
+export const useRoom = routeLoader$(async ({ params, status }) => {
+  const room = await Q_findRoomFromCodeWithPlayers.execute({ code: params.id });
+  if (!room) {
+    status(404);
+  }
+  return room;
+});
+
+export const useHostUsername = routeLoader$(async (event) => {
+  const room = await event.resolveValue(useRoom);
+  if (!room) {
+    return "Unknown room";
+  }
+  return getUserNameFromId(room.hostId);
+});
+
+export const useCurrentUserId = routeLoader$(async (event) => {
+  const { session } = await getSessionContext(event);
+  return session.userId ?? session.anonymousUserId ?? null;
+});
+
+const getUsername = server$((player: typeof players.$inferSelect) =>
+  getPlayerUsername(player),
+);
+const removeAiPlayer$ = server$((playerId: string) => removeAiPlayer(playerId));
+const addAiPlayer$ = server$((roomId: string) => addAiPlayer(roomId));
+const startGame$ = server$((roomId: string) => startGame(roomId));
 
 const leaveRoom$ = server$(async function (id: string) {
   const { session } = await getSessionContext(this);
@@ -68,45 +92,6 @@ const leaveRoom$ = server$(async function (id: string) {
 const joinRoom$ = server$(async function (id: string) {
   const { session } = await getSessionContext(this);
   return await joinRoom(session, id);
-});
-
-export const useRoom = routeLoader$(async ({ params, status }) => {
-  const room = await Q_findRoomFromCodeWithPlayers.execute({ code: params.id });
-  if (!room) {
-    status(404);
-  }
-  return room;
-});
-
-export const useHostUsername = routeLoader$(async (event) => {
-  const room = await event.resolveValue(useRoom);
-  if (!room) {
-    return "Unknown room";
-  }
-  return getUserNameFromId(room.hostId);
-});
-
-export const useCurrentUserId = routeLoader$(async (event) => {
-  const { session } = await getSessionContext(event);
-  return session.userId ?? session.anonymousUserId ?? null;
-});
-
-export const getUsername = server$(
-  async (player: typeof players.$inferSelect) => {
-    return getPlayerUsername(player);
-  },
-);
-
-const removeAiPlayer$ = server$(async function (playerId: string) {
-  return await removeAiPlayer(playerId);
-});
-
-const addAiPlayer$ = server$(async function (roomId: string) {
-  return await addAiPlayer(roomId);
-});
-
-const startGame$ = server$(async function (roomId: string) {
-  return await startGame(roomId);
 });
 
 export default component$(() => {

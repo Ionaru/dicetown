@@ -67,3 +67,12 @@ export const Q_findPlayerWithRoomById = registerPreparedQuery<{
     })
     .prepare("Q_findPlayerWithRoomById"),
 );
+
+export const Q_deletePlayerById = registerPreparedQuery<{
+  id: string;
+}>()(
+  db
+    .delete(players)
+    .where(eq(players.id, sql.placeholder("id")))
+    .prepare("Q_deletePlayerById"),
+);

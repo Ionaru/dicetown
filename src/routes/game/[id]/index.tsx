@@ -178,6 +178,7 @@ export default component$(() => {
     <div>
       <pre>isMyTurn: {isMyTurn ? "true" : "false"}</pre>
       <h1>Game {gameSnapshot.room.code}</h1>
+      <p>Coins: {me?.coins}</p>
       <ul>
         {Object.entries(me?.cards ?? {}).map(([card, count]) => (
           <li key={card}>
