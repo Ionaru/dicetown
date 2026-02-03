@@ -2,6 +2,7 @@ import DiceBox from "@3d-dice/dice-box-threejs";
 import {
   $,
   component$,
+  useComputed$,
   useContextProvider,
   useSignal,
   useStore,
@@ -58,6 +59,9 @@ const endTurn$ = server$((code, playerId) => endTurn({ code, playerId }));
 export default component$(() => {
   const diceBox = useSignal<DiceBox | null>(null);
   const updateQueue = useStore<(typeof gameState.$inferSelect)[]>([]);
+  const isProcessingUpdates = useSignal(false);
+  const hasPendingUpdateRun = useSignal(false);
+  const updateRunToken = useSignal(0);
   const snapshot = useGame().value;
   const me = usePlayer().value;
 
@@ -78,6 +82,8 @@ export default component$(() => {
   const room = snapshot.room;
   const players = snapshot.players;
   const gameSnapshot = useStore(snapshot);
+  const currId = useComputed$(() => gameSnapshot.gameState?.currentTurnPlayerId ?? null);
+  const isMyTurn = useComputed$(() => currId.value === me?.id);
 
   /**
    * This task is responsible for updating the UI and handling UI events based on the game state.
@@ -85,20 +91,39 @@ export default component$(() => {
    */
   useTask$(async ({ track }) => {
     const queue = track(updateQueue);
-    if (queue.length > 0) {
-      const updatedGameState = queue.at(0);
-      if (!updatedGameState) return;
-      if (
-        updatedGameState.phase === "buying" &&
-        !updatedGameState.hasPurchased
-      ) {
-        if (!diceBox.value) return;
-        await doDiceRoll(diceBox.value, updatedGameState.lastDiceRoll ?? []);
-      }
-      gameSnapshot.gameState = updatedGameState;
-      queue.shift();
+    track(() => updateRunToken.value);
+
+    if (isProcessingUpdates.value) {
+      hasPendingUpdateRun.value = true;
+      return;
     }
-  });
+
+    isProcessingUpdates.value = true;
+    try {
+      while (queue.length > 0) {
+        const updatedGameState = queue.at(0);
+        if (!updatedGameState) {
+          queue.shift();
+          continue;
+        }
+        if (
+          updatedGameState.phase === "buying" &&
+          !updatedGameState.hasPurchased
+        ) {
+          if (!diceBox.value) return;
+          await doDiceRoll(diceBox.value, updatedGameState.lastDiceRoll ?? []);
+        }
+        gameSnapshot.gameState = updatedGameState;
+        queue.shift();
+      }
+    } finally {
+      isProcessingUpdates.value = false;
+      if (hasPendingUpdateRun.value) {
+        hasPendingUpdateRun.value = false;
+        updateRunToken.value++;
+      }
+    }
+  }, { deferUpdates: false });
 
   if (!gameSnapshot.gameState) {
     return (
@@ -153,11 +178,6 @@ export default component$(() => {
     });
   });
 
-  const currentTurnPlayer = players.find(
-    (player) => player.id === gameSnapshot.gameState?.currentTurnPlayerId,
-  );
-  const isMyTurn = currentTurnPlayer?.id === me?.id;
-
   const rollDiceAction = $(() => rollDice$(room.code, me?.id, 1));
   const buyEstablishmentAction = $(() =>
     buyEstablishmnent$(room.code, me?.id, "business-center"),
@@ -166,6 +186,12 @@ export default component$(() => {
 
   return (
     <div>
+      <p>Current turn player: {currId.value}</p>
+      <ul>
+        {players.map((player) => (
+          <li key={player.id} class={`${player.id === currId.value ? "font-bold" : ""}`}>{player.id} - {player.coins}</li>
+        ))}
+      </ul>
       <pre>isMyTurn: {isMyTurn ? "true" : "false"}</pre>
       <h1>Game {gameSnapshot.room.code}</h1>
       <p>Coins: {me?.coins}</p>

@@ -13,7 +13,7 @@ export const navigateToRoom = async (requestEvent: RequestEventLoader) => {
     });
     code = player?.room.code;
   } catch (error) {
-    console.error(error);
+    console.error('Error finding player with room by id', error);
   }
   if (code) {
     throw requestEvent.redirect(302, `/room/${code}`);
