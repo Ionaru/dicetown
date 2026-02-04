@@ -178,7 +178,7 @@ export const startGame = async (code: string): Promise<RoomSnapshot> => {
     throw new Error("Room not found");
   }
 
-  if (snapshot.room.status !== "waiting") {
+  if (snapshot.room.status !== "waiting" && snapshot.room.status !== "finished") {
     throw new Error("Game already started");
   }
 

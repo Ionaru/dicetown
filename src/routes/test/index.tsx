@@ -12,30 +12,40 @@ export default component$(() => {
   const currentItem = useSignal<string | null>(null);
   const taskState = useDebouncedTaskState();
 
-  useTask$(async (ctx) => {
-    const q = ctx.track(queue);
-    await runDebouncedTask(ctx, taskState, async () => {
-      console.log("Task started", q.length);
-      try {
-        while (q.length > 0) {
-          const item = q.shift();
-          await sleep(1000);
-          if (!item) continue;
-          currentItem.value = item;
-          console.log("Task processing item", item);
+  useTask$(
+    async ({ track }) => {
+      const q = track(queue);
+      await runDebouncedTask(track, taskState, async () => {
+        try {
+          while (q.length > 0) {
+            const item = q.shift();
+            if (!item) continue;
+            currentItem.value = item;
+            await sleep(1000);
+          }
+        } finally {
+          console.log("Task done");
+          currentItem.value = null;
         }
-      } finally {
-        console.log("Task done");
-      }
-    });
-  }, { deferUpdates: false });
+      });
+    },
+    { deferUpdates: false },
+  );
 
   const pushToQueue = $(() => {
     currentItem.value = null;
-    setTimeout(() => { queue.push(crypto.randomUUID()); }, 50);
-    setTimeout(() => { queue.push(crypto.randomUUID()); }, 100);
-    setTimeout(() => { queue.push(crypto.randomUUID()); }, 150);
-    setTimeout(() => { queue.push(crypto.randomUUID()); }, 2000);
+    setTimeout(() => {
+      queue.push(crypto.randomUUID());
+    }, 50);
+    setTimeout(() => {
+      queue.push(crypto.randomUUID());
+    }, 100);
+    setTimeout(() => {
+      queue.push(crypto.randomUUID());
+    }, 150);
+    setTimeout(() => {
+      queue.push(crypto.randomUUID());
+    }, 2000);
   });
 
   return (

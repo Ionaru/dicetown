@@ -1,5 +1,5 @@
-import type { Signal, TaskCtx } from "@qwik.dev/core";
-import { useSignal } from "@qwik.dev/core";
+import { useSignal, Signal } from "@qwik.dev/core";
+import { Tracker } from "@qwik.dev/core/internal";
 
 export type DebouncedTaskState = {
   isProcessing: Signal<boolean>;
@@ -14,11 +14,11 @@ export const useDebouncedTaskState = (): DebouncedTaskState => ({
 });
 
 export const runDebouncedTask = async (
-  ctx: TaskCtx,
+  track: Tracker,
   state: DebouncedTaskState,
   run: () => Promise<void> | void,
 ) => {
-  ctx.track(() => state.runToken.value);
+  track(() => state.runToken.value);
 
   if (state.isProcessing.value) {
     state.hasPendingRun.value = true;

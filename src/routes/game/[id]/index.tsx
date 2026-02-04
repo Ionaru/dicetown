@@ -25,6 +25,10 @@ import {
   getRoomSnapshot,
   rollDiceForTurn,
 } from "../../../server/game-service";
+import {
+  runDebouncedTask,
+  useDebouncedTaskState,
+} from "../../../utils/use-debounced-task";
 
 const doDiceRoll = (diceBox: DiceBox, result: number[]) =>
   new Promise<void>((resolve) => {
@@ -59,9 +63,6 @@ const endTurn$ = server$((code, playerId) => endTurn({ code, playerId }));
 export default component$(() => {
   const diceBox = useSignal<DiceBox | null>(null);
   const updateQueue = useStore<(typeof gameState.$inferSelect)[]>([]);
-  const isProcessingUpdates = useSignal(false);
-  const hasPendingUpdateRun = useSignal(false);
-  const updateRunToken = useSignal(0);
   const snapshot = useGame().value;
   const me = usePlayer().value;
 
@@ -79,51 +80,64 @@ export default component$(() => {
     );
   }
 
+  if (snapshot.room.status === "finished") {
+    const winner = snapshot.players.find(
+      (player) => player.id === snapshot.gameState?.currentTurnPlayerId,
+    );
+    return (
+      <div class="flex h-full flex-col items-center justify-center">
+        <SmallTitle text="Game over" />
+        <SubTitle text="The game has ended. You can no longer play." />
+        <SubTitle text={`The winner is ${winner?.id}!`} />
+        <Link href="/" class="mt-4">
+          <StandardButton variant="secondary">
+            Go back to the home page
+          </StandardButton>
+        </Link>
+      </div>
+    );
+  }
+
   const room = snapshot.room;
   const players = snapshot.players;
   const gameSnapshot = useStore(snapshot);
-  const currId = useComputed$(() => gameSnapshot.gameState?.currentTurnPlayerId ?? null);
+  const currId = useComputed$(
+    () => gameSnapshot.gameState?.currentTurnPlayerId ?? null,
+  );
   const isMyTurn = useComputed$(() => currId.value === me?.id);
+  const taskState = useDebouncedTaskState();
 
   /**
    * This task is responsible for updating the UI and handling UI events based on the game state.
    * For example, showing a dice roll animation and visualizing the purchase of an establishment.
    */
-  useTask$(async ({ track }) => {
-    const queue = track(updateQueue);
-    track(() => updateRunToken.value);
-
-    if (isProcessingUpdates.value) {
-      hasPendingUpdateRun.value = true;
-      return;
-    }
-
-    isProcessingUpdates.value = true;
-    try {
-      while (queue.length > 0) {
-        const updatedGameState = queue.at(0);
-        if (!updatedGameState) {
-          queue.shift();
-          continue;
+  useTask$(
+    async ({ track }) => {
+      const queue = track(updateQueue);
+      await runDebouncedTask(track, taskState, async () => {
+        try {
+          while (queue.length > 0) {
+            const updatedGameState = queue.shift();
+            if (!updatedGameState) continue;
+            if (
+              updatedGameState.phase === "buying" &&
+              !updatedGameState.hasPurchased
+            ) {
+              if (!diceBox.value) return;
+              await doDiceRoll(
+                diceBox.value,
+                updatedGameState.lastDiceRoll ?? [],
+              );
+            }
+            gameSnapshot.gameState = updatedGameState;
+          }
+        } finally {
+          console.log("Task done");
         }
-        if (
-          updatedGameState.phase === "buying" &&
-          !updatedGameState.hasPurchased
-        ) {
-          if (!diceBox.value) return;
-          await doDiceRoll(diceBox.value, updatedGameState.lastDiceRoll ?? []);
-        }
-        gameSnapshot.gameState = updatedGameState;
-        queue.shift();
-      }
-    } finally {
-      isProcessingUpdates.value = false;
-      if (hasPendingUpdateRun.value) {
-        hasPendingUpdateRun.value = false;
-        updateRunToken.value++;
-      }
-    }
-  }, { deferUpdates: false });
+      });
+    },
+    { deferUpdates: false },
+  );
 
   if (!gameSnapshot.gameState) {
     return (
@@ -189,10 +203,15 @@ export default component$(() => {
       <p>Current turn player: {currId.value}</p>
       <ul>
         {players.map((player) => (
-          <li key={player.id} class={`${player.id === currId.value ? "font-bold" : ""}`}>{player.id} - {player.coins}</li>
+          <li
+            key={player.id}
+            class={`${player.id === currId.value ? "font-bold" : ""}`}
+          >
+            {player.id} - {player.coins}
+          </li>
         ))}
       </ul>
-      <pre>isMyTurn: {isMyTurn ? "true" : "false"}</pre>
+      <pre>isMyTurn: {isMyTurn.value ? "true" : "false"}</pre>
       <h1>Game {gameSnapshot.room.code}</h1>
       <p>Coins: {me?.coins}</p>
       <ul>
@@ -202,10 +221,10 @@ export default component$(() => {
           </li>
         ))}
       </ul>
-      {isMyTurn && gameSnapshot.gameState?.phase === "rolling" && (
+      {isMyTurn.value && gameSnapshot.gameState?.phase === "rolling" && (
         <StandardButton onClick$={rollDiceAction}>Roll Dice</StandardButton>
       )}
-      {isMyTurn && gameSnapshot.gameState?.phase === "buying" && (
+      {isMyTurn.value && gameSnapshot.gameState?.phase === "buying" && (
         <>
           <StandardButton onClick$={buyEstablishmentAction}>
             Buy Establishment
