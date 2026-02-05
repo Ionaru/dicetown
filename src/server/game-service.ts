@@ -614,7 +614,7 @@ export const addAiPlayer = async (roomId: string): Promise<void> => {
     throw new Error("Room not found");
   }
 
-  if (room.status !== "waiting") {
+  if (room.status === "playing") {
     throw new Error("Room already started");
   }
 
@@ -690,8 +690,8 @@ const toPlayerState = (
   userId: row.userId,
   anonymousUserId: row.anonymousUserId,
   coins: row.coins,
-  cards: (row.cards ?? {}) as Partial<Record<EstablishmentId, number>>,
-  landmarks: (row.landmarks ?? {}) as Partial<Record<LandmarkId, boolean>>,
+  cards: (row.cards ?? {}),
+  landmarks: (row.landmarks ?? {}),
   isAi: row.isAi,
   turnOrder: row.turnOrder,
 });

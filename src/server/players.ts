@@ -1,8 +1,7 @@
-import { players } from "../db/schema";
 import { getUserNameFromId } from "../auth/username";
 import { Q_deletePlayerById } from "../db/queries/players";
 
-export const getPlayerUsername = async (player: typeof players.$inferSelect) => {
+export const getPlayerUsername = async (player: { userId: string | null; anonymousUserId: string | null; isAi: boolean }) => {
 if (player.isAi) {
   return "AI player";
 }

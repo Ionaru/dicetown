@@ -11,6 +11,7 @@ import { eq } from "drizzle-orm/pg-core/expressions";
 import { getSessionContext } from "../../../../auth/session";
 import { getUserNameFromId } from "../../../../auth/username";
 import { supabase } from "../../../../client/supabase";
+import ErrorMessage from "../../../../components/common/ErrorMessage";
 import SmallTitle from "../../../../components/common/SmallTitle";
 import Button from "../../../../components/common/StandardButton";
 import Subtitle from "../../../../components/common/SubTitle";
@@ -95,6 +96,7 @@ export default component$(() => {
   const hostUserName = useHostUsername().value;
   const currentUserId = useCurrentUserId().value;
   const playersSignal = useSignal<(typeof players.$inferSelect)[]>([]);
+  const errorMessage = useSignal<string | null>(null);
 
   useTask$(() => {
     if (room?.id) {
@@ -232,6 +234,7 @@ export default component$(() => {
               Start Game
             </Button>
           )}
+          {errorMessage.value && <ErrorMessage message={errorMessage.value} />}
           {!isInRoom && <Button onClick$={joinRoomAction}>Join Game</Button>}
           <Button
             class="col-span-2"

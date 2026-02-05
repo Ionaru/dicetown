@@ -16,8 +16,9 @@ import { supabase } from "../../../client/supabase";
 import SmallTitle from "../../../components/common/SmallTitle";
 import StandardButton from "../../../components/common/StandardButton";
 import SubTitle from "../../../components/common/SubTitle";
+import PlayerBox from "../../../components/game/PlayerBox";
 import { DiceBoxContext } from "../../../context/dice-box";
-import { gameState } from "../../../db/schema";
+import { gameState, players } from "../../../db/schema";
 import { mapRowToTable } from "../../../db/utils";
 import {
   buyEstablishmentForTurn,
@@ -25,10 +26,13 @@ import {
   getRoomSnapshot,
   rollDiceForTurn,
 } from "../../../server/game-service";
+import { getPlayerUsername } from "../../../server/players";
 import {
   runDebouncedTask,
   useDebouncedTaskState,
 } from "../../../utils/use-debounced-task";
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const doDiceRoll = (diceBox: DiceBox, result: number[]) =>
   new Promise<void>((resolve) => {
@@ -42,6 +46,14 @@ const doDiceRoll = (diceBox: DiceBox, result: number[]) =>
 
 export const useGame = routeLoader$(({ params }) => getRoomSnapshot(params.id));
 
+const getUsername = server$(
+  (player: {
+    userId: string | null;
+    anonymousUserId: string | null;
+    isAi: boolean;
+  }) => getPlayerUsername(player),
+);
+
 export const usePlayer = routeLoader$(async (requestEvent) => {
   const { session } = await getSessionContext(requestEvent);
   const snapshot = await requestEvent.resolveValue(useGame);
@@ -50,6 +62,15 @@ export const usePlayer = routeLoader$(async (requestEvent) => {
       (session.userId && player.userId === session.userId) ||
       player.anonymousUserId === session.anonymousUserId,
   );
+});
+
+export const usePlayerNames = routeLoader$(async (requestEvent): Promise<Map<string, string>> => {
+  const snapshot = await requestEvent.resolveValue(useGame);
+  const names = new Map<string, string>();
+  for (const player of snapshot?.players ?? []) {
+    names.set(player.id, await getUsername(player));
+  }
+  return names;
 });
 
 const rollDice$ = server$((code, playerId, diceCount = 1) =>
@@ -62,9 +83,10 @@ const endTurn$ = server$((code, playerId) => endTurn({ code, playerId }));
 
 export default component$(() => {
   const diceBox = useSignal<DiceBox | null>(null);
-  const updateQueue = useStore<(typeof gameState.$inferSelect)[]>([]);
+  const updateQueue = useStore<((typeof gameState.$inferSelect) | (typeof players.$inferSelect))[]>([]);
   const snapshot = useGame().value;
   const me = usePlayer().value;
+  const playerNames = usePlayerNames().value;
 
   if (!snapshot) {
     return (
@@ -99,8 +121,8 @@ export default component$(() => {
   }
 
   const room = snapshot.room;
-  const players = snapshot.players;
   const gameSnapshot = useStore(snapshot);
+  const playersInGame = useComputed$(() => gameSnapshot.players);
   const currId = useComputed$(
     () => gameSnapshot.gameState?.currentTurnPlayerId ?? null,
   );
@@ -119,20 +141,29 @@ export default component$(() => {
           while (queue.length > 0) {
             const updatedGameState = queue.shift();
             if (!updatedGameState) continue;
-            if (
-              updatedGameState.phase === "buying" &&
-              !updatedGameState.hasPurchased
-            ) {
-              if (!diceBox.value) return;
-              await doDiceRoll(
-                diceBox.value,
-                updatedGameState.lastDiceRoll ?? [],
-              );
+
+            if ("phase" in updatedGameState) {
+              if (
+                updatedGameState.phase === "buying" &&
+                !updatedGameState.hasPurchased
+              ) {
+                if (!diceBox.value) return;
+                await doDiceRoll(
+                  diceBox.value,
+                  updatedGameState.lastDiceRoll ?? [],
+                );
+              }
+              console.log('Updating game state', updatedGameState.id)
+              gameSnapshot.gameState = updatedGameState;
             }
-            gameSnapshot.gameState = updatedGameState;
+
+            if ("coins" in updatedGameState) {
+              await sleep(1000);
+              gameSnapshot.players = gameSnapshot.players.map(p => p.id === updatedGameState.id ? updatedGameState : p);
+            }
           }
         } finally {
-          console.log("Task done");
+          // No-op
         }
       });
     },
@@ -184,6 +215,18 @@ export default component$(() => {
           const newState = mapRowToTable(gameState, payload.new);
           updateQueue.push(newState);
         },
+      ).on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "players",
+          filter: `room_id=eq.${room.id}`,
+        },
+        (payload) => {
+          const newState = mapRowToTable(players, payload.new);
+          updateQueue.push(newState);
+        },
       )
       .subscribe();
 
@@ -198,40 +241,75 @@ export default component$(() => {
   );
   const endTurnAction = $(() => endTurn$(room.code, me?.id));
 
+  let gridCols = '';
+  switch (playersInGame.value.length) {
+    case 2:
+      gridCols = 'grid-cols-2';
+      break;
+    case 3:
+      gridCols = 'grid-cols-3';
+      break;
+    case 4:
+      gridCols = 'grid-cols-4';
+      break;
+    case 5:
+      gridCols = 'grid-cols-5';
+      break;
+    default:
+      gridCols = 'grid-cols-1';
+      break;
+  }
   return (
-    <div>
-      <p>Current turn player: {currId.value}</p>
-      <ul>
-        {players.map((player) => (
-          <li
+    <div class="grid h-full grid-rows-[auto_1fr_auto]">
+      <div>
+        <p>Current turn player: {currId.value}</p>
+        <ul>
+          {playersInGame.value.map((player) => (
+            <li
+              key={player.id}
+              class={`${player.id === currId.value ? "font-bold" : ""}`}
+            >
+              {player.id} - {player.coins}
+            </li>
+          ))}
+        </ul>
+        <pre>isMyTurn: {isMyTurn.value ? "true" : "false"}</pre>
+        <h1>Game {gameSnapshot.room.code}</h1>
+        <p>Coins: {me?.coins}</p>
+        <ul>
+          {Object.entries(me?.cards ?? {}).map(([card, count]) => (
+            <li key={card}>
+              {card} x {count}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div>
+        {isMyTurn.value && gameSnapshot.gameState?.phase === "rolling" && (
+          <StandardButton onClick$={rollDiceAction}>Roll Dice</StandardButton>
+        )}
+        {isMyTurn.value && gameSnapshot.gameState?.phase === "buying" && (
+          <>
+            <StandardButton onClick$={buyEstablishmentAction}>
+              Buy Establishment
+            </StandardButton>
+            <StandardButton onClick$={endTurnAction}>End turn</StandardButton>
+          </>
+        )}
+      </div>
+      <div class={`grid gap-4 justify-center ${gridCols} mx-auto w-max`}>
+        {playersInGame.value.map((player) => (
+          <PlayerBox
             key={player.id}
-            class={`${player.id === currId.value ? "font-bold" : ""}`}
-          >
-            {player.id} - {player.coins}
-          </li>
+            name={playerNames.get(player.id) ?? "Unknown player"}
+            coins={player.coins}
+            isMe={player.id === me?.id}
+            isCurrentTurn={player.id === currId.value}
+            isAi={player.isAi}
+            landmarks={player.landmarks ?? {}}
+          />
         ))}
-      </ul>
-      <pre>isMyTurn: {isMyTurn.value ? "true" : "false"}</pre>
-      <h1>Game {gameSnapshot.room.code}</h1>
-      <p>Coins: {me?.coins}</p>
-      <ul>
-        {Object.entries(me?.cards ?? {}).map(([card, count]) => (
-          <li key={card}>
-            {card} x {count}
-          </li>
-        ))}
-      </ul>
-      {isMyTurn.value && gameSnapshot.gameState?.phase === "rolling" && (
-        <StandardButton onClick$={rollDiceAction}>Roll Dice</StandardButton>
-      )}
-      {isMyTurn.value && gameSnapshot.gameState?.phase === "buying" && (
-        <>
-          <StandardButton onClick$={buyEstablishmentAction}>
-            Buy Establishment
-          </StandardButton>
-          <StandardButton onClick$={endTurnAction}>End turn</StandardButton>
-        </>
-      )}
+      </div>
     </div>
   );
 });
