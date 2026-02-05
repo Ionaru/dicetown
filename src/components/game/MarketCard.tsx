@@ -51,8 +51,10 @@ export default component$<MarketCardProps>(({ card, count }) => {
       break;
   }
 
+  const soldOutStyles = count <= 0 ? "opacity-50 pointer-events-none" : "";
+
   return (
-    <div class={`${backgroundColor} rounded-md p-2 text-white`}>
+    <div class={`${backgroundColor} rounded-md p-2 text-white ${soldOutStyles}`}>
       {cardDefinition.name} - 🪙 {cardDefinition.cost} - x{count} [
       {cardDefinition.activation.join(", ")}]
       <button class="cursor-pointer" onClick$={() => buyEstablishmnent$(card)}>

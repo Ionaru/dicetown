@@ -92,6 +92,7 @@ export const createRoom = async (session: SessionContext['session']): Promise<st
 
 export const joinRoom = async (session: SessionContext['session'], code: string): Promise<{ code: string; playerId: string }> => {
   const normalizedCode = normalizeRoomCode(code);
+  console.log("normalizedCode", normalizedCode);
   const room = await db.query.rooms.findFirst({
     where: eq(rooms.code, normalizedCode),
   });
@@ -99,7 +100,7 @@ export const joinRoom = async (session: SessionContext['session'], code: string)
   if (!room) {
     throw new Error("Room not found");
   }
-  if (room.status !== "waiting") {
+  if (room.status === "playing") {
     throw new Error("Room already started");
   }
 
@@ -124,7 +125,7 @@ export const joinRoom = async (session: SessionContext['session'], code: string)
     return { code: room.code, playerId: existingPlayer.id };
   }
 
-  const turnOrder = existingPlayers.length + 1;
+  const turnOrder = findFirstFreeTurnOrder(existingPlayers);
   const player = await createPlayer({
     roomId: room.id,
     userId: session.userId,
@@ -609,6 +610,15 @@ const generateRoomCode = async (): Promise<string> => {
   throw new Error("Unable to generate unique room code");
 };
 
+const findFirstFreeTurnOrder = (gamePlayers: typeof players.$inferSelect[]): number => {
+  for (let i = 1; i <= MAX_PLAYERS; i++) {
+    if (!gamePlayers.some((player) => player.turnOrder === i)) {
+      return i;
+    }
+  }
+  throw new Error("No free turn order found");
+};
+
 export const addAiPlayer = async (roomId: string): Promise<void> => {
   const room = await db.query.rooms.findFirst({
     where: eq(rooms.id, roomId),
@@ -628,7 +638,7 @@ export const addAiPlayer = async (roomId: string): Promise<void> => {
     throw new Error("Room is full");
   }
 
-  const turnOrder = room.players.length + 1;
+  const turnOrder = findFirstFreeTurnOrder(room.players);
   await createPlayer({
     roomId,
     userId: null,

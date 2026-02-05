@@ -63,15 +63,6 @@ export const useGame = routeLoader$(({ params }) =>
   getRoomSnapshot(params.id ?? ""),
 );
 
-const getUsername = server$(
-  (player: {
-    userId: string | null;
-    anonymousUserId: string | null;
-    isAi: boolean;
-    turnOrder: number;
-  }) => getPlayerUsername(player),
-);
-
 export const usePlayer = routeLoader$(async (requestEvent) => {
   const { session } = await getSessionContext(requestEvent);
   const snapshot = await requestEvent.resolveValue(useGame);
@@ -87,7 +78,7 @@ export const usePlayerNames = routeLoader$(
     const snapshot = await requestEvent.resolveValue(useGame);
     const names = new Map<string, string>();
     for (const player of snapshot?.players ?? []) {
-      names.set(player.id, await getUsername(player));
+      names.set(player.id, await getPlayerUsername(player));
     }
     return names;
   },

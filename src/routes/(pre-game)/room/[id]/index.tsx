@@ -87,9 +87,9 @@ const leaveRoom$ = server$(async function (id: string) {
   }
 });
 
-const joinRoom$ = server$(async function (id: string) {
+const joinRoom$ = server$(async function (code: string) {
   const { session } = await getSessionContext(this);
-  return await joinRoom(session, id);
+  return await joinRoom(session, code);
 });
 
 export default component$(() => {
@@ -109,7 +109,7 @@ export default component$(() => {
   // eslint-disable-next-line qwik/no-use-visible-task
   useVisibleTask$(({ cleanup }) => {
     if (room?.id) {
-      const deleteChannel = supabase
+      const deletePlayersChannel = supabase
         .channel(`players-delete`)
         .on(
           "postgres_changes",
@@ -130,7 +130,7 @@ export default component$(() => {
         )
         .subscribe();
 
-      const insertChannel = supabase
+      const insertPlayersChannel = supabase
         .channel(`players-insert:${room.id}`)
         .on(
           "postgres_changes",
@@ -149,9 +149,29 @@ export default component$(() => {
         )
         .subscribe();
 
+        const updateRoomsChannel = supabase
+          .channel(`room-update:${room.id}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "UPDATE",
+              schema: "public",
+              table: "rooms",
+              filter: `id=eq.${room.id}`,
+            },
+            (payload) => {
+              const newRoom = mapRowToTable(rooms, payload.new);
+              if (newRoom.status === "playing") {
+                nav(`/game/${newRoom.code}`);
+              }
+            },
+          )
+          .subscribe();
+
       cleanup(() => {
-        deleteChannel.unsubscribe();
-        insertChannel.unsubscribe();
+        updateRoomsChannel.unsubscribe();
+        deletePlayersChannel.unsubscribe();
+        insertPlayersChannel.unsubscribe();
       });
     }
   });
@@ -173,7 +193,7 @@ export default component$(() => {
     });
 
     const joinRoomAction = $(async () => {
-      await joinRoom$(room.id);
+      await joinRoom$(room.code);
     });
 
     const startGameAction = $(async () => {
@@ -237,7 +257,7 @@ export default component$(() => {
             </Button>
           )}
           {errorMessage.value && <ErrorMessage message={errorMessage.value} />}
-          {!isInRoom && <Button onClick$={joinRoomAction}>Join Game</Button>}
+          {!isInRoom && <Button class="col-span-2" onClick$={joinRoomAction}>Join Game</Button>}
           <Button
             class="col-span-2"
             variant="secondary"

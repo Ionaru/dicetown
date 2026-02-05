@@ -17,14 +17,15 @@ export default component$<PlayerBoxProps>(
       ? "border-double border-4 border-white"
       : "m-1";
 
+    const isMeStyle = isMe ? "bg-mk-card-green!" : "bg-mk-blue";
+    const isAiStyle = isAi ? "font-mono text-base!" : "rounded-xl bg-mk-card-yellow";
+
     return (
       <div
-        class={`bg-mk-blue flex flex-col items-center justify-center rounded-md p-2 text-white ${isCurrentTurnStyle}`}
+        class={`flex flex-col items-center justify-center p-2 text-xl text-white select-none ${isCurrentTurnStyle} ${isMeStyle} ${isAiStyle}`}
       >
         <span class="rounded-md p-2">{name}</span>
-        {isMe && <span class="rounded-md p-2">(You)</span>}
-        {isAi && <span class="rounded-md p-2">🤖</span>}
-        <span class="select-none">
+        <span class="text-xl">
           <span title="Train Station">
             {landmarks["train-station"] ? "🚂" : "🔳"}
           </span>
@@ -38,7 +39,7 @@ export default component$<PlayerBoxProps>(
             {landmarks["radio-tower"] ? "📻" : "🔳"}
           </span>
         </span>
-        <span class="rounded-md p-2">🪙 {coins}</span>
+        <span class="rounded-md p-2 text-2xl">🪙 {coins}</span>
       </div>
     );
   },
