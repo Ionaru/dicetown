@@ -39,6 +39,11 @@ const createAnonymousUser = async () => {
     .insert(anonymousUsers)
     .values({ name })
     .returning();
+
+  if (!anonymousUser) {
+    throw new Error("Failed to create anonymous user");
+  }
+
   return anonymousUser;
 };
 
@@ -56,6 +61,11 @@ const createSession = async (input: {
     now,
     expiresAt,
   });
+
+  if (!session) {
+    throw new Error("Failed to create session");
+  }
+
   return session;
 };
 

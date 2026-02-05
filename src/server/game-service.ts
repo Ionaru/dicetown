@@ -45,7 +45,7 @@ export type RoomSnapshot = {
     code: string;
     status: RoomStatus;
   };
-  players: Array<PlayerState & { isAi: boolean; turnOrder: number }>;
+  players: Array<typeof players.$inferSelect>;
   gameState: {
     currentTurnPlayerId: string | null;
     phase: TurnPhase;
@@ -700,6 +700,9 @@ const toPlayerState = (
   landmarks: (row.landmarks ?? {}),
   isAi: row.isAi,
   turnOrder: row.turnOrder,
+  createdAt: row.createdAt,
+  updatedAt: row.updatedAt,
+  roomId: row.roomId,
 });
 
 const persistPlayers = async (
@@ -738,7 +741,13 @@ const getNextPlayerId = (playerList: PlayerState[], currentId: string) => {
     throw new Error("Current player not found");
   }
   const nextIndex = (index + 1) % playerList.length;
-  return playerList[nextIndex].id;
+
+  const nextPlayer = playerList.at(nextIndex);
+  if (!nextPlayer) {
+    throw new Error("Next player not found");
+  }
+
+  return nextPlayer.id;
 };
 
 const endTurnInternal = async (input: {
@@ -937,7 +946,9 @@ const chooseAiDecision = (
   );
   const targetCards = getOwnedCards(target);
 
-  if (ownerCards.length === 0 || targetCards.length === 0) {
+  const giveCardId = ownerCards.at(0);
+  const takeCardId = targetCards.at(0);
+  if (!giveCardId || !takeCardId) {
     return null;
   }
 
@@ -945,8 +956,8 @@ const chooseAiDecision = (
     type: "business-center",
     ownerId: pending.ownerId,
     targetPlayerId: target.id,
-    giveCardId: ownerCards[0],
-    takeCardId: targetCards[0],
+    giveCardId,
+    takeCardId,
   };
 };
 

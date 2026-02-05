@@ -38,7 +38,9 @@ export const useGame = routeLoader$((requestEvent) =>
 );
 
 export const useRoom = routeLoader$(async ({ params, status }) => {
-  const room = await Q_findRoomFromCodeWithPlayers.execute({ code: params.id });
+  const room = await Q_findRoomFromCodeWithPlayers.execute({
+    code: params.id ?? "",
+  });
   if (!room) {
     status(404);
   }

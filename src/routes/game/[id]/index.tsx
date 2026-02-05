@@ -16,7 +16,8 @@ import { supabase } from "../../../client/supabase";
 import SmallTitle from "../../../components/common/SmallTitle";
 import StandardButton from "../../../components/common/StandardButton";
 import SubTitle from "../../../components/common/SubTitle";
-import PlayerBox from "../../../components/game/PlayerBox";
+import CardMarket from "../../../components/game/CardMarket";
+import GamePlayers from "../../../components/game/GamePlayers";
 import { DiceBoxContext } from "../../../context/dice-box";
 import { gameState, players } from "../../../db/schema";
 import { mapRowToTable } from "../../../db/utils";
@@ -44,7 +45,9 @@ const doDiceRoll = (diceBox: DiceBox, result: number[]) =>
     diceBox.roll(`${result.length}d6@${result.join(",")}`);
   });
 
-export const useGame = routeLoader$(({ params }) => getRoomSnapshot(params.id));
+export const useGame = routeLoader$(({ params }) =>
+  getRoomSnapshot(params.id ?? ""),
+);
 
 const getUsername = server$(
   (player: {
@@ -131,6 +134,9 @@ export default component$(() => {
     () => gameSnapshot.gameState?.currentTurnPlayerId ?? null,
   );
   const isMyTurn = useComputed$(() => currId.value === me?.id);
+  const mePlayer = useComputed$(() =>
+    playersInGame.value.find((p) => p.id === me?.id),
+  );
   const taskState = useDebouncedTaskState();
 
   /**
@@ -248,24 +254,6 @@ export default component$(() => {
   );
   const endTurnAction = $(() => endTurn$(room.code, me?.id));
 
-  let gridCols = "";
-  switch (playersInGame.value.length) {
-    case 2:
-      gridCols = "grid-cols-2";
-      break;
-    case 3:
-      gridCols = "grid-cols-3";
-      break;
-    case 4:
-      gridCols = "grid-cols-4";
-      break;
-    case 5:
-      gridCols = "grid-cols-5";
-      break;
-    default:
-      gridCols = "grid-cols-1";
-      break;
-  }
   return (
     <div class="grid h-full grid-rows-[auto_1fr_auto]">
       <div>
@@ -282,9 +270,9 @@ export default component$(() => {
         </ul>
         <pre>isMyTurn: {isMyTurn.value ? "true" : "false"}</pre>
         <h1>Game {gameSnapshot.room.code}</h1>
-        <p>Coins: {me?.coins}</p>
+        <p>Coins: {mePlayer.value?.coins}</p>
         <ul>
-          {Object.entries(me?.cards ?? {}).map(([card, count]) => (
+          {Object.entries(mePlayer?.value?.cards ?? {}).map(([card, count]) => (
             <li key={card}>
               {card} x {count}
             </li>
@@ -292,6 +280,7 @@ export default component$(() => {
         </ul>
       </div>
       <div>
+        <CardMarket cards={gameSnapshot.gameState.marketState} />
         {isMyTurn.value && gameSnapshot.gameState?.phase === "rolling" && (
           <StandardButton onClick$={rollDiceAction}>Roll Dice</StandardButton>
         )}
@@ -304,19 +293,12 @@ export default component$(() => {
           </>
         )}
       </div>
-      <div class={`grid justify-center gap-4 ${gridCols} mx-auto w-max`}>
-        {playersInGame.value.map((player) => (
-          <PlayerBox
-            key={player.id}
-            name={playerNames.get(player.id) ?? "Unknown player"}
-            coins={player.coins}
-            isMe={player.id === me?.id}
-            isCurrentTurn={player.id === currId.value}
-            isAi={player.isAi}
-            landmarks={player.landmarks ?? {}}
-          />
-        ))}
-      </div>
+      <GamePlayers
+        players={playersInGame.value}
+        playerNames={playerNames}
+        meId={me?.id ?? ""}
+        currId={currId.value ?? ""}
+      />
     </div>
   );
 });
