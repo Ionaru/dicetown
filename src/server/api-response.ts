@@ -1,4 +1,5 @@
 import type { RequestEvent, RequestEventBase } from "@qwik.dev/router";
+
 import type { RoomSnapshot } from "./game-service";
 
 export type ApiSuccess = {

@@ -1,11 +1,9 @@
 import { and, asc, eq } from "drizzle-orm";
+
+import { SessionContext } from "../auth/session";
 import { db } from "../db/db";
+import { Q_insertPlayer } from "../db/queries/players";
 import { gameState, players, rooms } from "../db/schema";
-import {
-  type PendingDecision,
-  type PendingDecisionResolution,
-  type PlayerState,
-} from "../game/types";
 import {
   ESTABLISHMENTS,
   LANDMARKS,
@@ -32,10 +30,14 @@ import {
   resolveRoll,
   shouldTakeExtraTurn,
 } from "../game/engine";
-import { rollDie, rollDice } from "./secure-random";
+import {
+  type PendingDecision,
+  type PendingDecisionResolution,
+  type PlayerState,
+} from "../game/types";
 import { RoomStatus, TurnPhase } from "../utils/enums";
-import { SessionContext } from "../auth/session";
-import { Q_insertPlayer } from "../db/queries/players";
+
+import { rollDie, rollDice } from "./secure-random";
 
 export type RoomSnapshot = {
   room: {

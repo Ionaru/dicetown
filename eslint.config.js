@@ -43,7 +43,6 @@ const ignores = [
   "**/pnpm-lock.yaml",
   "**/package-lock.json",
   "**/yarn.lock",
-  "**/server",
   "eslint.config.js",
 ];
 
