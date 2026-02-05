@@ -2,6 +2,11 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "../db/db";
 import { gameState, players, rooms } from "../db/schema";
 import {
+  type PendingDecision,
+  type PendingDecisionResolution,
+  type PlayerState,
+} from "../game/types";
+import {
   ESTABLISHMENTS,
   LANDMARKS,
   MAX_PLAYERS,
@@ -10,6 +15,11 @@ import {
   ROOM_CODE_LENGTH,
   STARTING_CARDS,
   STARTING_COINS,
+  type EstablishmentDefinition,
+  type EstablishmentId,
+  type LandmarkId,
+} from "../game/constants";
+import {
   applyPendingDecision,
   applyPurchaseEstablishment,
   applyPurchaseLandmark,
@@ -21,13 +31,7 @@ import {
   hasWon,
   resolveRoll,
   shouldTakeExtraTurn,
-  type EstablishmentDefinition,
-  type EstablishmentId,
-  type LandmarkId,
-  type PendingDecision,
-  type PendingDecisionResolution,
-  type PlayerState,
-} from "../game";
+} from "../game/engine";
 import { rollDie, rollDice } from "./secure-random";
 import { RoomStatus, TurnPhase } from "../utils/enums";
 import { SessionContext } from "../auth/session";

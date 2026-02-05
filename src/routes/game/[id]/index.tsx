@@ -64,14 +64,16 @@ export const usePlayer = routeLoader$(async (requestEvent) => {
   );
 });
 
-export const usePlayerNames = routeLoader$(async (requestEvent): Promise<Map<string, string>> => {
-  const snapshot = await requestEvent.resolveValue(useGame);
-  const names = new Map<string, string>();
-  for (const player of snapshot?.players ?? []) {
-    names.set(player.id, await getUsername(player));
-  }
-  return names;
-});
+export const usePlayerNames = routeLoader$(
+  async (requestEvent): Promise<Map<string, string>> => {
+    const snapshot = await requestEvent.resolveValue(useGame);
+    const names = new Map<string, string>();
+    for (const player of snapshot?.players ?? []) {
+      names.set(player.id, await getUsername(player));
+    }
+    return names;
+  },
+);
 
 const rollDice$ = server$((code, playerId, diceCount = 1) =>
   rollDiceForTurn({ code, playerId, diceCount }),
@@ -83,7 +85,9 @@ const endTurn$ = server$((code, playerId) => endTurn({ code, playerId }));
 
 export default component$(() => {
   const diceBox = useSignal<DiceBox | null>(null);
-  const updateQueue = useStore<((typeof gameState.$inferSelect) | (typeof players.$inferSelect))[]>([]);
+  const updateQueue = useStore<
+    (typeof gameState.$inferSelect | typeof players.$inferSelect)[]
+  >([]);
   const snapshot = useGame().value;
   const me = usePlayer().value;
   const playerNames = usePlayerNames().value;
@@ -153,13 +157,15 @@ export default component$(() => {
                   updatedGameState.lastDiceRoll ?? [],
                 );
               }
-              console.log('Updating game state', updatedGameState.id)
+              console.log("Updating game state", updatedGameState.id);
               gameSnapshot.gameState = updatedGameState;
             }
 
             if ("coins" in updatedGameState) {
               await sleep(1000);
-              gameSnapshot.players = gameSnapshot.players.map(p => p.id === updatedGameState.id ? updatedGameState : p);
+              gameSnapshot.players = gameSnapshot.players.map((p) =>
+                p.id === updatedGameState.id ? updatedGameState : p,
+              );
             }
           }
         } finally {
@@ -215,7 +221,8 @@ export default component$(() => {
           const newState = mapRowToTable(gameState, payload.new);
           updateQueue.push(newState);
         },
-      ).on(
+      )
+      .on(
         "postgres_changes",
         {
           event: "UPDATE",
@@ -241,22 +248,22 @@ export default component$(() => {
   );
   const endTurnAction = $(() => endTurn$(room.code, me?.id));
 
-  let gridCols = '';
+  let gridCols = "";
   switch (playersInGame.value.length) {
     case 2:
-      gridCols = 'grid-cols-2';
+      gridCols = "grid-cols-2";
       break;
     case 3:
-      gridCols = 'grid-cols-3';
+      gridCols = "grid-cols-3";
       break;
     case 4:
-      gridCols = 'grid-cols-4';
+      gridCols = "grid-cols-4";
       break;
     case 5:
-      gridCols = 'grid-cols-5';
+      gridCols = "grid-cols-5";
       break;
     default:
-      gridCols = 'grid-cols-1';
+      gridCols = "grid-cols-1";
       break;
   }
   return (
@@ -297,7 +304,7 @@ export default component$(() => {
           </>
         )}
       </div>
-      <div class={`grid gap-4 justify-center ${gridCols} mx-auto w-max`}>
+      <div class={`grid justify-center gap-4 ${gridCols} mx-auto w-max`}>
         {playersInGame.value.map((player) => (
           <PlayerBox
             key={player.id}

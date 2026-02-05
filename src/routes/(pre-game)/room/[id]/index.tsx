@@ -23,7 +23,7 @@ import {
 } from "../../../../db/queries/rooms";
 import { players, rooms } from "../../../../db/schema";
 import { mapRowToTable } from "../../../../db/utils";
-import { MAX_PLAYERS, MIN_PLAYERS } from "../../../../game";
+import { MAX_PLAYERS, MIN_PLAYERS } from "../../../../game/constants";
 import {
   addAiPlayer,
   joinRoom,

@@ -12,8 +12,8 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import { MarketState, PendingDecision } from "../game";
 import { EstablishmentId, LandmarkId } from "../game/constants";
+import { MarketState, PendingDecision } from "../game/types";
 import { RoomStatus, TurnPhase } from "../utils/enums";
 
 export const roomStatusEnum = pgEnum("room_status", [
