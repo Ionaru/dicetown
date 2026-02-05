@@ -310,8 +310,6 @@ export const rollDiceForTurn = async (input: {
     resolved.pendingDecisions.length > 0 ? TurnPhase.Income : TurnPhase.Buying;
 
   await db.transaction(async (tx) => {
-    await persistPlayers(tx, snapshot.room.id, resolved.players);
-
     await tx
       .update(gameState)
       .set({
@@ -321,6 +319,8 @@ export const rollDiceForTurn = async (input: {
         hasPurchased: false,
       })
       .where(eq(gameState.roomId, snapshot.room.id));
+    await persistPlayers(tx, snapshot.room.id, resolved.players);
+
   });
 
   return (await getRoomSnapshot(input.code)) as RoomSnapshot;

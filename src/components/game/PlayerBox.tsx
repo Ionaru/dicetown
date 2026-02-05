@@ -24,11 +24,19 @@ export default component$<PlayerBoxProps>(
         <span class="rounded-md p-2">{name}</span>
         {isMe && <span class="rounded-md p-2">(You)</span>}
         {isAi && <span class="rounded-md p-2">🤖</span>}
-        <span>
-          {landmarks["train-station"] ? "🚂" : "🔳"}
-          {landmarks["shopping-mall"] ? "🛍️" : "🔳"}
-          {landmarks["amusement-park"] ? "🎠" : "🔳"}
-          {landmarks["radio-tower"] ? "📻" : "🔳"}
+        <span class="select-none">
+          <span title="Train Station">
+            {landmarks["train-station"] ? "🚂" : "🔳"}
+          </span>
+          <span title="Shopping Mall">
+            {landmarks["shopping-mall"] ? "🛍️" : "🔳"}
+          </span>
+          <span title="Amusement Park">
+            {landmarks["amusement-park"] ? "🎠" : "🔳"}
+          </span>
+          <span title="Radio Tower">
+            {landmarks["radio-tower"] ? "📻" : "🔳"}
+          </span>
         </span>
         <span class="rounded-md p-2">🪙 {coins}</span>
       </div>

@@ -1,18 +1,25 @@
 import { component$ } from "@qwik.dev/core";
+import { Entries } from "type-fest";
 
-import { EstablishmentId } from "../../game/constants";
+import { LandmarkId, LANDMARKS } from "../../game/constants";
 
-import MarketCard from "./MarketCard";
+import LandmarkCard from "./LandmarkCard";
 
 interface CardMarketProps {
-  cards: Record<EstablishmentId, number>;
+  cards: Partial<Record<LandmarkId, boolean>>;
 }
 
 export default component$<CardMarketProps>(({ cards }) => {
+  const landmarkCards = (
+    Object.entries(LANDMARKS) as Entries<typeof LANDMARKS>
+  ).toSorted(([a], [b]) => {
+    return LANDMARKS[a].cost - LANDMARKS[b].cost;
+  });
+
   return (
     <div class="grid grid-cols-4 gap-4">
-      {Object.entries(cards).map(([card, count]) => (
-        <MarketCard key={card} card={card as EstablishmentId} count={count} />
+      {landmarkCards.map(([card]) => (
+        <LandmarkCard key={card} card={card} owned={cards[card] ?? false} />
       ))}
     </div>
   );

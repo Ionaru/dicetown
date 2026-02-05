@@ -27,8 +27,13 @@ interface MarketCardProps {
 }
 
 export default component$<MarketCardProps>(({ card, count }) => {
+  const cardDefinition = ESTABLISHMENTS[card];
+  if (!cardDefinition) {
+    throw new Error(`Card definition not found for ${card}`);
+  }
+
   let backgroundColor = "";
-  switch (ESTABLISHMENTS[card].color) {
+  switch (cardDefinition.color) {
     case "blue":
       backgroundColor = "bg-mk-card-blue";
       break;
@@ -48,7 +53,8 @@ export default component$<MarketCardProps>(({ card, count }) => {
 
   return (
     <div class={`${backgroundColor} rounded-md p-2 text-white`}>
-      {ESTABLISHMENTS[card].name} - {count}
+      {cardDefinition.name} - 🪙 {cardDefinition.cost} - x{count} [
+      {cardDefinition.activation.join(", ")}]
       <button class="cursor-pointer" onClick$={() => buyEstablishmnent$(card)}>
         Buy
       </button>

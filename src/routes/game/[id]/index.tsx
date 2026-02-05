@@ -10,6 +10,7 @@ import {
   useVisibleTask$,
 } from "@qwik.dev/core";
 import { Link, routeLoader$, server$ } from "@qwik.dev/router";
+import { RealtimePostgresChangesFilter } from "@supabase/supabase-js";
 
 import { getSessionContext } from "../../../auth/session";
 import { supabase } from "../../../client/supabase";
@@ -18,20 +19,33 @@ import StandardButton from "../../../components/common/StandardButton";
 import SubTitle from "../../../components/common/SubTitle";
 import CardMarket from "../../../components/game/CardMarket";
 import GamePlayers from "../../../components/game/GamePlayers";
+import LandmarkMarket from "../../../components/game/LandmarkMarket";
 import { DiceBoxContext } from "../../../context/dice-box";
-import { gameState, players } from "../../../db/schema";
+import { gameState, players, rooms } from "../../../db/schema";
 import { mapRowToTable } from "../../../db/utils";
+import { RadioTowerDecision } from "../../../game/types";
 import {
-  buyEstablishmentForTurn,
   endTurn,
   getRoomSnapshot,
+  resolveDecisionForTurn,
   rollDiceForTurn,
+  RoomSnapshot,
 } from "../../../server/game-service";
 import { getPlayerUsername } from "../../../server/players";
+import { RoomStatus } from "../../../utils/enums";
 import {
   runDebouncedTask,
   useDebouncedTaskState,
 } from "../../../utils/use-debounced-task";
+
+const hasPendingRadioTowerDecision = (
+  snapshot: RoomSnapshot,
+  playerId: string,
+) =>
+  snapshot.gameState?.pendingDecisions.some(
+    (decision) =>
+      decision.type === "radio-tower" && decision.ownerId === playerId,
+  ) ?? false;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -54,6 +68,7 @@ const getUsername = server$(
     userId: string | null;
     anonymousUserId: string | null;
     isAi: boolean;
+    turnOrder: number;
   }) => getPlayerUsername(player),
 );
 
@@ -81,10 +96,13 @@ export const usePlayerNames = routeLoader$(
 const rollDice$ = server$((code, playerId, diceCount = 1) =>
   rollDiceForTurn({ code, playerId, diceCount }),
 );
-const buyEstablishmnent$ = server$((code, playerId, establishmentId) =>
-  buyEstablishmentForTurn({ code, playerId, establishmentId }),
-);
+
 const endTurn$ = server$((code, playerId) => endTurn({ code, playerId }));
+
+const resolveRadioTowerDecisionForTurn$ = server$(
+  (code, playerId, decision: RadioTowerDecision) =>
+    resolveDecisionForTurn({ code, playerId, decision }),
+);
 
 export default component$(() => {
   const diceBox = useSignal<DiceBox | null>(null);
@@ -109,24 +127,6 @@ export default component$(() => {
     );
   }
 
-  if (snapshot.room.status === "finished") {
-    const winner = snapshot.players.find(
-      (player) => player.id === snapshot.gameState?.currentTurnPlayerId,
-    );
-    return (
-      <div class="flex h-full flex-col items-center justify-center">
-        <SmallTitle text="Game over" />
-        <SubTitle text="The game has ended. You can no longer play." />
-        <SubTitle text={`The winner is ${winner?.id}!`} />
-        <Link href="/" class="mt-4">
-          <StandardButton variant="secondary">
-            Go back to the home page
-          </StandardButton>
-        </Link>
-      </div>
-    );
-  }
-
   const room = snapshot.room;
   const gameSnapshot = useStore(snapshot);
   const playersInGame = useComputed$(() => gameSnapshot.players);
@@ -138,6 +138,26 @@ export default component$(() => {
     playersInGame.value.find((p) => p.id === me?.id),
   );
   const taskState = useDebouncedTaskState();
+
+  if (gameSnapshot.room.status === RoomStatus.Finished) {
+    const winner = playersInGame.value.find(
+      (player) => player.id === gameSnapshot.gameState?.currentTurnPlayerId,
+    );
+    const winnerName = playerNames.get(winner?.id ?? "");
+    return (
+      <div class="flex h-full flex-col items-center justify-center">
+        <SmallTitle text="Game over" />
+        <SubTitle text="The game has ended! Play again to try your luck." />
+        {winnerName && <SubTitle text={`The winner is ${winnerName}!`} />}
+        <Link href="/" class="mt-4">
+          <StandardButton variant="secondary">Back to the lobby</StandardButton>
+        </Link>
+      </div>
+    );
+  }
+
+  const isRolling = useSignal(false);
+  const isRerolling = useSignal(false);
 
   /**
    * This task is responsible for updating the UI and handling UI events based on the game state.
@@ -154,6 +174,18 @@ export default component$(() => {
 
             if ("phase" in updatedGameState) {
               if (
+                updatedGameState.phase === "rolling" &&
+                updatedGameState.lastDiceRoll
+              ) {
+                if (!diceBox.value) return;
+                await doDiceRoll(
+                  diceBox.value,
+                  updatedGameState.lastDiceRoll ?? [],
+                );
+                isRolling.value = false;
+              }
+
+              if (
                 updatedGameState.phase === "buying" &&
                 !updatedGameState.hasPurchased
               ) {
@@ -168,13 +200,15 @@ export default component$(() => {
             }
 
             if ("coins" in updatedGameState) {
-              await sleep(1000);
+              await sleep(250);
               gameSnapshot.players = gameSnapshot.players.map((p) =>
                 p.id === updatedGameState.id ? updatedGameState : p,
               );
             }
           }
         } finally {
+          isRolling.value = false;
+          isRerolling.value = false;
           // No-op
         }
       });
@@ -211,18 +245,40 @@ export default component$(() => {
     diceBox.value = box;
   });
 
+  const gameStateUpdatesForRoom = $(
+    (roomId: string): RealtimePostgresChangesFilter<"UPDATE"> => ({
+      event: "UPDATE",
+      schema: "public",
+      table: "game_state",
+      filter: `room_id=eq.${roomId}`,
+    }),
+  );
+
+  const playerUpdatesForRoom = $(
+    (roomId: string): RealtimePostgresChangesFilter<"UPDATE"> => ({
+      event: "UPDATE",
+      schema: "public",
+      table: "players",
+      filter: `room_id=eq.${roomId}`,
+    }),
+  );
+
+  const roomUpdatesForRoom = $(
+    (roomId: string): RealtimePostgresChangesFilter<"UPDATE"> => ({
+      event: "UPDATE",
+      schema: "public",
+      table: "rooms",
+      filter: `id=eq.${roomId}`,
+    }),
+  );
+
   // eslint-disable-next-line qwik/no-use-visible-task
   useVisibleTask$(async ({ cleanup }) => {
     const updateChannel = supabase
       .channel(`game_state-update:${room.id}`)
       .on(
         "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "game_state",
-          filter: `room_id=eq.${room.id}`,
-        },
+        await gameStateUpdatesForRoom(room.id),
         (payload) => {
           const newState = mapRowToTable(gameState, payload.new);
           updateQueue.push(newState);
@@ -230,17 +286,16 @@ export default component$(() => {
       )
       .on(
         "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "players",
-          filter: `room_id=eq.${room.id}`,
-        },
+        await playerUpdatesForRoom(room.id),
         (payload) => {
           const newState = mapRowToTable(players, payload.new);
           updateQueue.push(newState);
         },
       )
+      .on("postgres_changes", await roomUpdatesForRoom(room.id), (payload) => {
+        const newState = mapRowToTable(rooms, payload.new);
+        gameSnapshot.room = newState;
+      })
       .subscribe();
 
     cleanup(() => {
@@ -248,11 +303,28 @@ export default component$(() => {
     });
   });
 
-  const rollDiceAction = $(() => rollDice$(room.code, me?.id, 1));
-  const buyEstablishmentAction = $(() =>
-    buyEstablishmnent$(room.code, me?.id, "business-center"),
-  );
+  const rollDiceAction = $(() => {
+    isRolling.value = true;
+    rollDice$(room.code, me?.id, 1);
+  });
   const endTurnAction = $(() => endTurn$(room.code, me?.id));
+
+  const radioTowerRerollAction = $(() => {
+    isRerolling.value = true;
+    resolveRadioTowerDecisionForTurn$(room.code, me?.id, {
+      type: "radio-tower",
+      ownerId: me?.id ?? "",
+      choice: "reroll",
+    });
+  });
+
+  const radioTowerContinueAction = $(() => {
+    resolveRadioTowerDecisionForTurn$(room.code, me?.id, {
+      type: "radio-tower",
+      ownerId: me?.id ?? "",
+      choice: "keep",
+    });
+  });
 
   return (
     <div class="grid h-full grid-rows-[auto_1fr_auto]">
@@ -280,18 +352,44 @@ export default component$(() => {
         </ul>
       </div>
       <div>
-        <CardMarket cards={gameSnapshot.gameState.marketState} />
-        {isMyTurn.value && gameSnapshot.gameState?.phase === "rolling" && (
-          <StandardButton onClick$={rollDiceAction}>Roll Dice</StandardButton>
-        )}
-        {isMyTurn.value && gameSnapshot.gameState?.phase === "buying" && (
-          <>
-            <StandardButton onClick$={buyEstablishmentAction}>
-              Buy Establishment
-            </StandardButton>
+        {isMyTurn.value &&
+          hasPendingRadioTowerDecision(gameSnapshot, me?.id ?? "") && (
+            <>
+              <span>
+                You rolled{" "}
+                {gameSnapshot.gameState?.lastDiceRoll?.reduce(
+                  (sum, value) => sum + value,
+                  0,
+                )}
+              </span>
+              <StandardButton onClick$={radioTowerRerollAction}>
+                Reroll
+              </StandardButton>
+              <StandardButton onClick$={radioTowerContinueAction}>
+                Continue
+              </StandardButton>
+            </>
+          )}
+        {isMyTurn.value &&
+          gameSnapshot.gameState?.phase === "rolling" &&
+          !hasPendingRadioTowerDecision(gameSnapshot, me?.id ?? "") &&
+          !isRolling.value && (
+            <StandardButton onClick$={rollDiceAction}>Roll Dice</StandardButton>
+          )}
+        {isMyTurn.value &&
+          gameSnapshot.gameState?.phase === "buying" &&
+          !gameSnapshot.gameState.hasPurchased && (
+            <>
+              <LandmarkMarket cards={mePlayer.value?.landmarks ?? {}} />
+              <CardMarket cards={gameSnapshot.gameState.marketState} />
+              <StandardButton onClick$={endTurnAction}>Skip</StandardButton>
+            </>
+          )}
+        {isMyTurn.value &&
+          gameSnapshot.gameState?.phase === "buying" &&
+          gameSnapshot.gameState.hasPurchased && (
             <StandardButton onClick$={endTurnAction}>End turn</StandardButton>
-          </>
-        )}
+          )}
       </div>
       <GamePlayers
         players={playersInGame.value}
