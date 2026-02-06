@@ -3,7 +3,7 @@ import type { Entries } from "type-fest";
 
 import { EstablishmentId, ESTABLISHMENTS } from "../../game/constants";
 
-import MarketCard from "./MarketCard";
+import EstablishmentCard from "./EstablishmentCard";
 
 interface CardMarketProps {
   cards: Record<EstablishmentId, number>;
@@ -22,7 +22,7 @@ export default component$<CardMarketProps>(({ cards }) => {
   return (
     <div class="grid grid-cols-5 gap-4">
       {marketCards.value.map(([card, count]) => (
-        <MarketCard key={card} card={card as EstablishmentId} count={count} />
+        <EstablishmentCard key={card} card={card} count={count} />
       ))}
     </div>
   );

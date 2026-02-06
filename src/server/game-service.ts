@@ -308,6 +308,9 @@ export const rollDiceForTurn = async (input: {
     players: snapshot.players,
   });
 
+  console.log("resolved", resolved.log);
+  console.log("transactions", resolved.transactions);
+
   const nextPhase =
     resolved.pendingDecisions.length > 0 ? TurnPhase.Income : TurnPhase.Buying;
 
@@ -827,7 +830,7 @@ const runAiTurns = async (snapshot: RoomSnapshot): Promise<RoomSnapshot> => {
     const currentPlayer = currentSnapshot.players.find(
       (player) => player.id === game.currentTurnPlayerId,
     );
-    if (!currentPlayer || !currentPlayer.isAi) {
+    if (!currentPlayer?.isAi) {
       return currentSnapshot;
     }
 
@@ -872,7 +875,7 @@ const applyAiPurchase = async (
   snapshot: RoomSnapshot,
   playerId: string,
 ): Promise<RoomSnapshot> => {
-  if (!snapshot.gameState || snapshot.gameState.phase !== "buying") {
+  if (snapshot.gameState?.phase !== "buying") {
     return snapshot;
   }
   if (snapshot.gameState.hasPurchased) {

@@ -1,5 +1,9 @@
+import { eq } from "drizzle-orm/pg-core/expressions";
+
 import { getUserNameFromId } from "../auth/username";
+import { db } from "../db/db";
 import { Q_deletePlayerById } from "../db/queries/players";
+import { players, rooms } from "../db/schema";
 
 const getAiPlayerName = (turnOrder: number) => {
   let name = "Alpha";
@@ -36,3 +40,16 @@ return getUserNameFromId(id);
 export const leaveRoom = async (playerId: string) => {
   await Q_deletePlayerById.execute({ id: playerId });
 };
+
+export const migrateHostIfNeeded = async (room: typeof rooms.$inferSelect, roomPlayers: typeof players.$inferSelect[]) => {
+  const validIds = roomPlayers.map((p) => p.userId ?? p.anonymousUserId);
+  if (!validIds.includes(room.hostId)) {
+    const firstPlayer = validIds.at(0);
+    if (firstPlayer) {
+      await db
+        .update(rooms)
+        .set({ hostId: firstPlayer })
+        .where(eq(rooms.id, room.id));
+    }
+  }
+}

@@ -17,13 +17,14 @@ import { supabase } from "../../../client/supabase";
 import SmallTitle from "../../../components/common/SmallTitle";
 import StandardButton from "../../../components/common/StandardButton";
 import SubTitle from "../../../components/common/SubTitle";
-import CardMarket from "../../../components/game/CardMarket";
+import EstablishmentMarket from "../../../components/game/EstablishmentMarket";
 import GamePlayers from "../../../components/game/GamePlayers";
 import LandmarkMarket from "../../../components/game/LandmarkMarket";
 import { DiceBoxContext } from "../../../context/dice-box";
 import { gameState, players, rooms } from "../../../db/schema";
 import { mapRowToTable } from "../../../db/utils";
 import { ESTABLISHMENTS } from "../../../game/constants";
+import { canRollTwoDice } from "../../../game/engine";
 import { RadioTowerDecision } from "../../../game/types";
 import {
   endTurn,
@@ -33,11 +34,47 @@ import {
   RoomSnapshot,
 } from "../../../server/game-service";
 import { getPlayerUsername } from "../../../server/players";
-import { RoomStatus } from "../../../utils/enums";
+import { RoomStatus, TurnPhase } from "../../../utils/enums";
 import {
   runDebouncedTask,
   useDebouncedTaskState,
 } from "../../../utils/use-debounced-task";
+
+type GamestateUpdate =
+  | typeof gameState.$inferSelect
+  | typeof players.$inferSelect;
+
+const shouldShowDiceRoll = (
+  snapshot: RoomSnapshot,
+  update: GamestateUpdate,
+): boolean => {
+  if ("phase" in update) {
+    if (
+      snapshot.gameState?.phase === TurnPhase.Rolling &&
+      update.lastDiceRoll
+    ) {
+      return true;
+    }
+    return false;
+  }
+  return false;
+};
+
+const shouldShowIncome = (
+  snapshot: RoomSnapshot,
+  update: GamestateUpdate,
+): boolean => {
+  if ("phase" in update) {
+    if (
+      snapshot.gameState?.phase === TurnPhase.Rolling &&
+      update.phase === TurnPhase.Buying
+    ) {
+      console.log("income?");
+      return true;
+    }
+  }
+  return false;
+};
 
 const hasPendingRadioTowerDecision = (
   snapshot: RoomSnapshot,
@@ -98,9 +135,7 @@ const resolveRadioTowerDecisionForTurn$ = server$(
 
 export default component$(() => {
   const diceBox = useSignal<DiceBox | null>(null);
-  const updateQueue = useStore<
-    (typeof gameState.$inferSelect | typeof players.$inferSelect)[]
-  >([]);
+  const updateQueue = useStore<GamestateUpdate[]>([]);
   const snapshot = useGame().value;
   const me = usePlayer().value;
   const playerNames = usePlayerNames().value;
@@ -129,6 +164,9 @@ export default component$(() => {
   const mePlayer = useComputed$(() =>
     playersInGame.value.find((p) => p.id === me?.id),
   );
+  const canRoll2Dice = useComputed$(() =>
+    mePlayer.value ? canRollTwoDice(mePlayer.value) : false,
+  );
   const taskState = useDebouncedTaskState();
 
   if (gameSnapshot.room.status === RoomStatus.Finished) {
@@ -141,7 +179,7 @@ export default component$(() => {
         <SmallTitle text="Game over" />
         <SubTitle text="The game has ended! Play again to try your luck." />
         {winnerName && <SubTitle text={`The winner is ${winnerName}!`} />}
-        <Link href="/" class="mt-4">
+        <Link href={`/room/${room.code}`} class="mt-4">
           <StandardButton variant="secondary">Back to the lobby</StandardButton>
         </Link>
       </div>
@@ -165,10 +203,7 @@ export default component$(() => {
             if (!updatedGameState) continue;
 
             if ("phase" in updatedGameState) {
-              if (
-                updatedGameState.phase === "rolling" &&
-                updatedGameState.lastDiceRoll
-              ) {
+              if (shouldShowDiceRoll(gameSnapshot, updatedGameState)) {
                 if (!diceBox.value) return;
                 await doDiceRoll(
                   diceBox.value,
@@ -177,22 +212,15 @@ export default component$(() => {
                 isRolling.value = false;
               }
 
-              if (
-                updatedGameState.phase === "buying" &&
-                !updatedGameState.hasPurchased
-              ) {
-                if (!diceBox.value) return;
-                await doDiceRoll(
-                  diceBox.value,
-                  updatedGameState.lastDiceRoll ?? [],
-                );
+              if (shouldShowIncome(gameSnapshot, updatedGameState)) {
+                console.log("income!");
               }
-              console.log("Updating game state", updatedGameState.id);
+
               gameSnapshot.gameState = updatedGameState;
             }
 
             if ("coins" in updatedGameState) {
-              await sleep(250);
+              await sleep(20);
               gameSnapshot.players = gameSnapshot.players.map((p) =>
                 p.id === updatedGameState.id ? updatedGameState : p,
               );
@@ -266,8 +294,8 @@ export default component$(() => {
 
   // eslint-disable-next-line qwik/no-use-visible-task
   useVisibleTask$(async ({ cleanup }) => {
-    const updateChannel = supabase
-      .channel(`game_state-update:${room.id}`)
+    const subscription = supabase
+      .channel(`game:${room.id}`)
       .on(
         "postgres_changes",
         await gameStateUpdatesForRoom(room.id),
@@ -291,7 +319,8 @@ export default component$(() => {
       .subscribe();
 
     cleanup(() => {
-      updateChannel.unsubscribe();
+      console.log("cleanup game", room.id);
+      supabase.removeChannel(subscription);
     });
   });
 
@@ -299,10 +328,16 @@ export default component$(() => {
     isRolling.value = true;
     rollDice$(room.code, me?.id, 1);
   });
+
+  const roll2DiceAction = $(() => {
+    isRolling.value = true;
+    rollDice$(room.code, me?.id, 2);
+  });
+
   const endTurnAction = $(() => endTurn$(room.code, me?.id));
 
   const radioTowerRerollAction = $(() => {
-    isRerolling.value = true;
+    isRolling.value = true;
     resolveRadioTowerDecisionForTurn$(room.code, me?.id, {
       type: "radio-tower",
       ownerId: me?.id ?? "",
@@ -322,31 +357,18 @@ export default component$(() => {
 
   return (
     <div class="grid h-full grid-rows-[auto_1fr_auto]">
-      <div>
-        <p>Current turn player: {currId.value}</p>
-        <ul>
-          {playersInGame.value.map((player) => (
-            <li
-              key={player.id}
-              class={`${player.id === currId.value ? "font-bold" : ""}`}
-            >
-              {player.id} - {player.coins}
-            </li>
-          ))}
-        </ul>
-        <pre>isMyTurn: {isMyTurn.value ? "true" : "false"}</pre>
-        <h1>Game {gameSnapshot.room.code}</h1>
-        <p>Coins: {mePlayer.value?.coins}</p>
-        <ul>
-          {Object.entries(mePlayer?.value?.cards ?? {}).map(([card, count]) => (
-            <li key={card}>
-              {card} x {count}
-            </li>
-          ))}
-        </ul>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold">Game {gameSnapshot.room.code}</h1>
+        {!isMyTurn.value && (
+          <h2 class="text-2xl">
+            It's {playerNames.get(currId.value ?? "")}'s turn
+          </h2>
+        )}
+        {isMyTurn.value && <h2 class="text-2xl font-bold">It's your turn!</h2>}
       </div>
-      <div>
+      <div class="m-8 flex flex-col items-center justify-center gap-4">
         {isMyTurn.value &&
+          !isRolling.value &&
           hasPendingRadioTowerDecision(gameSnapshot, me?.id ?? "") && (
             <>
               <span>
@@ -368,21 +390,32 @@ export default component$(() => {
           gameSnapshot.gameState?.phase === "rolling" &&
           !hasPendingRadioTowerDecision(gameSnapshot, me?.id ?? "") &&
           !isRolling.value && (
-            <StandardButton onClick$={rollDiceAction}>Roll Dice</StandardButton>
-          )}
-        {isMyTurn.value &&
-          gameSnapshot.gameState?.phase === "buying" &&
-          !gameSnapshot.gameState.hasPurchased && (
             <>
-              <LandmarkMarket cards={mePlayer.value?.landmarks ?? {}} />
-              <CardMarket cards={gameSnapshot.gameState.marketState} />
-              <StandardButton onClick$={endTurnAction}>Skip</StandardButton>
+              <StandardButton onClick$={rollDiceAction}>
+                Roll Dice
+              </StandardButton>
+              {canRoll2Dice.value && (
+                <StandardButton onClick$={roll2DiceAction}>
+                  Roll 2 Dice
+                </StandardButton>
+              )}
             </>
           )}
         {isMyTurn.value &&
           gameSnapshot.gameState?.phase === "buying" &&
+          !gameSnapshot.gameState.hasPurchased && (
+            <div class="m-8 flex flex-col items-center justify-center gap-4">
+              <LandmarkMarket cards={mePlayer.value?.landmarks ?? {}} />
+              <EstablishmentMarket cards={gameSnapshot.gameState.marketState} />
+              <StandardButton onClick$={endTurnAction}>Skip</StandardButton>
+            </div>
+          )}
+        {isMyTurn.value &&
+          gameSnapshot.gameState?.phase === "buying" &&
           gameSnapshot.gameState.hasPurchased && (
-            <StandardButton onClick$={endTurnAction}>End turn</StandardButton>
+            <div class="m-8 flex flex-col items-center justify-center gap-4">
+              <StandardButton onClick$={endTurnAction}>End turn</StandardButton>
+            </div>
           )}
       </div>
       <GamePlayers

@@ -30,7 +30,11 @@ import {
   removeAiPlayer,
   startGame,
 } from "../../../../server/game-service";
-import { getPlayerUsername, leaveRoom } from "../../../../server/players";
+import {
+  getPlayerUsername,
+  leaveRoom,
+  migrateHostIfNeeded,
+} from "../../../../server/players";
 import { navigateToGame } from "../../guards";
 
 export const useGame = routeLoader$((requestEvent) =>
@@ -41,9 +45,12 @@ export const useRoom = routeLoader$(async ({ params, status }) => {
   const room = await Q_findRoomFromCodeWithPlayers.execute({
     code: params.id ?? "",
   });
-  if (!room) {
+  if (room) {
+    await migrateHostIfNeeded(room, room.players);
+  } else {
     status(404);
   }
+
   return room;
 });
 
@@ -82,8 +89,10 @@ const leaveRoom$ = server$(async function (id: string) {
   if (!room) {
     throw new Error("Room not found");
   }
-  if (room.players.filter((p) => !p.isAi).length === 0) {
+  if (room.players.every((p) => p.isAi)) {
     await db.delete(rooms).where(eq(rooms.id, id));
+  } else {
+    await migrateHostIfNeeded(room, room.players);
   }
 });
 
@@ -99,6 +108,7 @@ export default component$(() => {
   const currentUserId = useCurrentUserId().value;
   const playersSignal = useSignal<(typeof players.$inferSelect)[]>([]);
   const errorMessage = useSignal<string | null>(null);
+  const isHost = useSignal(false);
 
   useTask$(() => {
     if (room?.id) {
@@ -106,11 +116,24 @@ export default component$(() => {
     }
   });
 
-  // eslint-disable-next-line qwik/no-use-visible-task
-  useVisibleTask$(({ cleanup }) => {
+  useTask$(() => {
     if (room?.id) {
-      const deletePlayersChannel = supabase
-        .channel(`players-delete`)
+      isHost.value = room.hostId === currentUserId;
+    }
+  });
+
+  // eslint-disable-next-line qwik/no-use-visible-task
+  useVisibleTask$(async () => {
+    if (room?.id) {
+      const channelSubTopic = `room:${room.id}`;
+      const existingChannels = supabase.getChannels();
+      for (const channel of existingChannels) {
+        if (channel.subTopic === channelSubTopic) {
+          supabase.removeChannel(channel);
+        }
+      }
+      supabase
+        .channel(channelSubTopic)
         .on(
           "postgres_changes",
           {
@@ -128,10 +151,6 @@ export default component$(() => {
             }
           },
         )
-        .subscribe();
-
-      const insertPlayersChannel = supabase
-        .channel(`players-insert:${room.id}`)
         .on(
           "postgres_changes",
           {
@@ -147,32 +166,24 @@ export default component$(() => {
             ];
           },
         )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "rooms",
+            filter: `id=eq.${room.id}`,
+          },
+          (payload) => {
+            const newRoom = mapRowToTable(rooms, payload.new);
+            if (newRoom.status === "playing") {
+              nav(`/game/${newRoom.code}`);
+            } else {
+              isHost.value = newRoom.hostId === currentUserId;
+            }
+          },
+        )
         .subscribe();
-
-        const updateRoomsChannel = supabase
-          .channel(`room-update:${room.id}`)
-          .on(
-            "postgres_changes",
-            {
-              event: "UPDATE",
-              schema: "public",
-              table: "rooms",
-              filter: `id=eq.${room.id}`,
-            },
-            (payload) => {
-              const newRoom = mapRowToTable(rooms, payload.new);
-              if (newRoom.status === "playing") {
-                nav(`/game/${newRoom.code}`);
-              }
-            },
-          )
-          .subscribe();
-
-      cleanup(() => {
-        updateRoomsChannel.unsubscribe();
-        deletePlayersChannel.unsubscribe();
-        insertPlayersChannel.unsubscribe();
-      });
     }
   });
 
@@ -182,7 +193,6 @@ export default component$(() => {
         player.userId === currentUserId ||
         player.anonymousUserId === currentUserId,
     );
-    const isHost = currentUserId === room.hostId;
     const leaveRoomAction = $(async () => {
       await leaveRoom$(room.id);
       nav("/");
@@ -227,7 +237,7 @@ export default component$(() => {
                 class={`text-center text-2xl ${isYou ? "font-bold" : ""}`}
               >
                 {getUsername(player)} {isYou ? "(You)" : ""}
-                {isHost && player.isAi ? removeButton : ""}
+                {isHost.value && player.isAi ? removeButton : ""}
               </li>
             );
           })}
@@ -240,7 +250,7 @@ export default component$(() => {
             ))}
         </ul>
         <div class="grid w-100 grid-cols-2 items-center justify-center gap-4">
-          {isHost && (
+          {isHost.value && (
             <Button
               disabled={playersSignal.value.length >= MAX_PLAYERS}
               onClick$={addAiPlayerAction}
@@ -248,7 +258,7 @@ export default component$(() => {
               Add AI Player
             </Button>
           )}
-          {isHost && (
+          {isHost.value && (
             <Button
               disabled={playersSignal.value.length < MIN_PLAYERS}
               onClick$={startGameAction}
@@ -257,7 +267,11 @@ export default component$(() => {
             </Button>
           )}
           {errorMessage.value && <ErrorMessage message={errorMessage.value} />}
-          {!isInRoom && <Button class="col-span-2" onClick$={joinRoomAction}>Join Game</Button>}
+          {!isInRoom && (
+            <Button class="col-span-2" onClick$={joinRoomAction}>
+              Join Game
+            </Button>
+          )}
           <Button
             class="col-span-2"
             variant="secondary"

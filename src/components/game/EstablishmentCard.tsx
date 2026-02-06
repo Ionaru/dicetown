@@ -12,14 +12,14 @@ const buyEstablishmnent$ = server$(async function (card: EstablishmentId) {
   const player = await Q_findPlayerWithRoomById.execute({
     id: session.userId ?? session.anonymousUserId,
   });
-  if (!player?.isAi) {
+  if (!player) {
     throw new ServerError(400, "Player not found");
   }
   return await buyEstablishmentForTurn({
     code: player.room.code,
-      playerId: player.id,
-      establishmentId: card,
-    });
+    playerId: player.id,
+    establishmentId: card,
+  });
 });
 
 interface MarketCardProps {
@@ -66,7 +66,9 @@ export default component$<MarketCardProps>(({ card, count }) => {
   });
 
   return (
-    <div class={`${backgroundColor} rounded-md p-2 text-white ${soldOutStyles}`}>
+    <div
+      class={`${backgroundColor} rounded-md p-2 text-white ${soldOutStyles}`}
+    >
       {cardDefinition.name} - 🪙 {cardDefinition.cost} - x{count} [
       {cardDefinition.activation.join(", ")}]
       <button class="cursor-pointer" onClick$={buyEstablishmentAction}>
