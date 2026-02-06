@@ -1,5 +1,6 @@
-import { component$ } from "@qwik.dev/core";
+import { $, component$ } from "@qwik.dev/core";
 import { server$ } from "@qwik.dev/router";
+import { ServerError } from "@qwik.dev/router/middleware/request-handler";
 
 import { getSessionContext } from "../../auth/session";
 import { Q_findPlayerWithRoomById } from "../../db/queries/players";
@@ -11,14 +12,14 @@ const buyEstablishmnent$ = server$(async function (card: EstablishmentId) {
   const player = await Q_findPlayerWithRoomById.execute({
     id: session.userId ?? session.anonymousUserId,
   });
-  if (!player) {
-    throw new Error("Player not found");
+  if (!player?.isAi) {
+    throw new ServerError(400, "Player not found");
   }
   return await buyEstablishmentForTurn({
     code: player.room.code,
-    playerId: player.id,
-    establishmentId: card,
-  });
+      playerId: player.id,
+      establishmentId: card,
+    });
 });
 
 interface MarketCardProps {
@@ -53,11 +54,22 @@ export default component$<MarketCardProps>(({ card, count }) => {
 
   const soldOutStyles = count <= 0 ? "opacity-50 pointer-events-none" : "";
 
+  const buyEstablishmentAction = $(async () => {
+    try {
+      await buyEstablishmnent$(card);
+    } catch (error) {
+      console.error("Failed to buy establishment", typeof error);
+      if (error instanceof ServerError) {
+        console.error("Failed to buy establishment", error);
+      }
+    }
+  });
+
   return (
     <div class={`${backgroundColor} rounded-md p-2 text-white ${soldOutStyles}`}>
       {cardDefinition.name} - 🪙 {cardDefinition.cost} - x{count} [
       {cardDefinition.activation.join(", ")}]
-      <button class="cursor-pointer" onClick$={() => buyEstablishmnent$(card)}>
+      <button class="cursor-pointer" onClick$={buyEstablishmentAction}>
         Buy
       </button>
     </div>

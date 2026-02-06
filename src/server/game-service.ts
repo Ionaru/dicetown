@@ -1,3 +1,4 @@
+import { ServerError } from "@qwik.dev/router/middleware/request-handler";
 import { and, asc, eq } from "drizzle-orm";
 
 import { SessionContext } from "../auth/session";
@@ -483,7 +484,7 @@ export const buyEstablishmentForTurn = async (input: {
     throw new Error("You can only own one of that establishment");
   }
   if (player.coins < establishment.cost) {
-    throw new Error("You don't have enough coins");
+    throw new ServerError(400,"You don't have enough coins");
   }
   if (!canBuildEstablishment(player, input.establishmentId, snapshot.gameState.marketState)) {
     throw new Error("That establishment cannot be purchased right now");

@@ -1,18 +1,20 @@
 import { component$ } from "@qwik.dev/core";
 
+import { ESTABLISHMENTS } from "../../game/constants";
 import { RoomSnapshot } from "../../server/game-service";
 
-import PlayerBox from "./PlayerBox";
+import GamePlayer from "./GamePlayer";
 
 interface GamePlayersProps {
   players: RoomSnapshot["players"];
   playerNames: Map<string, string>;
   meId: string;
   currId: string;
+  establishmentsInPlay: (typeof ESTABLISHMENTS)[keyof typeof ESTABLISHMENTS][];
 }
 
 export default component$<GamePlayersProps>(
-  ({ players, playerNames, meId, currId }) => {
+  ({ players, playerNames, meId, currId, establishmentsInPlay }) => {
     let gridCols = "";
     switch (players.length) {
       case 2:
@@ -33,9 +35,11 @@ export default component$<GamePlayersProps>(
     }
 
     return (
-      <div class={`grid justify-center gap-4 ${gridCols} mx-auto w-max`}>
+      <div
+        class={`grid gap-4 ${gridCols} fixed right-0 bottom-0 left-0 mx-auto w-max items-end`}
+      >
         {players.map((player) => (
-          <PlayerBox
+          <GamePlayer
             key={player.id}
             name={playerNames.get(player.id) ?? "Unknown player"}
             coins={player.coins}
@@ -43,6 +47,8 @@ export default component$<GamePlayersProps>(
             isCurrentTurn={player.id === currId}
             isAi={player.isAi}
             landmarks={player.landmarks ?? {}}
+            establishments={player.cards ?? {}}
+            establishmentsInPlay={establishmentsInPlay}
           />
         ))}
       </div>

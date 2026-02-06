@@ -23,6 +23,7 @@ import LandmarkMarket from "../../../components/game/LandmarkMarket";
 import { DiceBoxContext } from "../../../context/dice-box";
 import { gameState, players, rooms } from "../../../db/schema";
 import { mapRowToTable } from "../../../db/utils";
+import { ESTABLISHMENTS } from "../../../game/constants";
 import { RadioTowerDecision } from "../../../game/types";
 import {
   endTurn,
@@ -317,6 +318,8 @@ export default component$(() => {
     });
   });
 
+  const establishmentsInPlay = Object.values(ESTABLISHMENTS);
+
   return (
     <div class="grid h-full grid-rows-[auto_1fr_auto]">
       <div>
@@ -387,6 +390,7 @@ export default component$(() => {
         playerNames={playerNames}
         meId={me?.id ?? ""}
         currId={currId.value ?? ""}
+        establishmentsInPlay={establishmentsInPlay}
       />
     </div>
   );

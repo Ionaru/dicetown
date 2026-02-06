@@ -173,7 +173,7 @@ export const ESTABLISHMENTS = {
     icon: "fruit",
     effect: { kind: "bankPerIcon", amount: 2, icons: ["wheat", "fruit"] },
   },
-} satisfies Record<string, EstablishmentDefinition>;
+} as const satisfies Record<string, EstablishmentDefinition>;
 
 export type EstablishmentId = keyof typeof ESTABLISHMENTS;
 
@@ -214,9 +214,9 @@ export const DEFAULT_MARKET_COUNTS: Record<EstablishmentId, number> = {
   cafe: 6,
   "convenience-store": 6,
   forest: 6,
-  stadium: 4,
-  "tv-station": 4,
-  "business-center": 4,
+  stadium: 5,
+  "tv-station": 5,
+  "business-center": 5,
   "cheese-factory": 6,
   "furniture-factory": 6,
   mine: 6,
