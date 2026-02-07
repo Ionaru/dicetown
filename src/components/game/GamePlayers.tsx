@@ -15,7 +15,7 @@ interface GamePlayersProps {
 
 export default component$<GamePlayersProps>(
   ({ players, playerNames, meId, currId, establishmentsInPlay }) => {
-    let gridCols = "";
+    let gridCols = "grid-cols-1";
     switch (players.length) {
       case 2:
         gridCols = "grid-cols-2";
@@ -28,9 +28,6 @@ export default component$<GamePlayersProps>(
         break;
       case 5:
         gridCols = "grid-cols-5";
-        break;
-      default:
-        gridCols = "grid-cols-1";
         break;
     }
 

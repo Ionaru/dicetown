@@ -12,7 +12,6 @@ import Title from "../../components/common/MainTitle";
 import Button from "../../components/common/StandardButton";
 import Subtitle from "../../components/common/SubTitle";
 import { createRoom } from "../../server/game-service";
-import { rollDice } from "../../server/secure-random";
 import { title } from "../../utils/title";
 
 import { navigateToRoom } from "./guards";
@@ -20,11 +19,6 @@ import { navigateToRoom } from "./guards";
 export const usePlayerRoom = routeLoader$((requestEvent) =>
   navigateToRoom(requestEvent),
 );
-
-export const serverRollDice = server$(async () => {
-  const [firstNumber, secondNumber] = rollDice(2, 6);
-  return `${firstNumber},${secondNumber}`;
-});
 
 const createRoomAction = server$(async function () {
   const { session } = await getSessionContext(this);

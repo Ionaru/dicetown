@@ -47,9 +47,6 @@ export default component$<MarketCardProps>(({ card, count }) => {
     case "purple":
       backgroundColor = "bg-mk-card-purple";
       break;
-    default:
-      backgroundColor = "bg-mk-card-blue";
-      break;
   }
 
   const soldOutStyles = count <= 0 ? "opacity-50 pointer-events-none" : "";

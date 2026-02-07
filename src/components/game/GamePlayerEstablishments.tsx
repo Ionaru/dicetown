@@ -13,11 +13,8 @@ export default component$<GamePlayerEstablishmentsProps>(
       const grid = [];
       for (const element of establishmentsInPlay) {
         const owned = establishments[element.id] ?? 0;
-        let cardColor = "";
+        let cardColor = "bg-mk-card-blue";
         switch (element.color) {
-          case "blue":
-            cardColor = "bg-mk-card-blue";
-            break;
           case "green":
             cardColor = "bg-mk-card-green";
             break;
@@ -26,9 +23,6 @@ export default component$<GamePlayerEstablishmentsProps>(
             break;
           case "purple":
             cardColor = "bg-mk-card-purple";
-            break;
-          default:
-            cardColor = "bg-mk-card-blue";
             break;
         }
         if (owned > 0) {
