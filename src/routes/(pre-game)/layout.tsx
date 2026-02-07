@@ -1,4 +1,4 @@
-import { component$, Slot } from "@qwik.dev/core";
+import { component$, Slot, useComputed$ } from "@qwik.dev/core";
 import { Link, routeLoader$ } from "@qwik.dev/router";
 
 import { getSessionContext } from "../../auth/session";
@@ -20,10 +20,11 @@ export const useUser = routeLoader$(async (requestEvent) => {
 
 export default component$(() => {
   const user = useUser().value;
-  const name =
-    user && "displayName" in user
-      ? user.displayName
-      : (user?.name ?? "Unknown");
+  const name = useComputed$(() => {
+    if (!user) return "Unknown";
+    if ("displayName" in user) return user.displayName;
+    return user.name ?? "Unknown";
+  });
   return (
     <>
       <main>
