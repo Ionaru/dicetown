@@ -54,6 +54,16 @@ export const useRoom = routeLoader$(async ({ params, status }) => {
   return room;
 });
 
+export const getPlayers = server$(async (code: string) => {
+  const room = await Q_findRoomFromCodeWithPlayers.execute({
+    code: code,
+  });
+  if (!room) {
+    throw new Error("Room not found");
+  }
+  return room.players;
+});
+
 export const useHostUsername = routeLoader$(async (event) => {
   const room = await event.resolveValue(useRoom);
   if (!room) {
@@ -159,11 +169,9 @@ export default component$(() => {
             table: "players",
             filter: `room_id=eq.${room.id}`,
           },
-          (payload) => {
-            playersSignal.value = [
-              ...playersSignal.value,
-              mapRowToTable(players, payload.new),
-            ];
+          async () => {
+            const newPlayers = await getPlayers(room.code);
+            playersSignal.value = newPlayers;
           },
         )
         .on(
@@ -219,6 +227,7 @@ export default component$(() => {
         <p class="text-2xl">Players: {playersSignal.value.length}/5</p>
         <ul>
           {playersSignal.value.map((player) => {
+            console.log(player);
             const removeAiPlayerAction = $(() => removeAiPlayer$(player.id));
             const isYou =
               currentUserId === player.userId ||
