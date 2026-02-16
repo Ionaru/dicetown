@@ -39,7 +39,7 @@ export default component$<PlayerBoxProps>(
 
     return (
       <div
-        class={`flex h-max cursor-pointer flex-col items-center justify-center gap-2 p-2 text-xl text-white transition-[padding] ease-in-out select-none hover:pb-4 ${isCurrentTurnStyle} ${isMeStyle} ${isAiStyle}`}
+        class={`flex h-max cursor-pointer flex-col items-center justify-center gap-2 p-2 text-xl text-white transition-[padding,filter] ease-in-out select-none hover:pb-4 hover:brightness-105 ${isCurrentTurnStyle} ${isMeStyle} ${isAiStyle}`}
       >
         <span class="h-6 rounded-md">{name}</span>
         <span class="font-honey rounded-md text-2xl">🪙 {coins}</span>

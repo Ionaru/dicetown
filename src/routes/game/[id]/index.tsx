@@ -355,76 +355,96 @@ export default component$(() => {
 
   const establishmentsInPlay = Object.values(ESTABLISHMENTS);
 
+  const marketDialogRef = useSignal<HTMLDialogElement>();
+
   return (
-    <div class="grid h-full grid-rows-[auto_1fr_auto]">
-      <div class="text-center">
-        <h1 class="text-4xl font-bold">Game {gameSnapshot.room.code}</h1>
-        {!isMyTurn.value && (
-          <h2 class="text-2xl">
-            It's {playerNames.get(currId.value ?? "")}'s turn
-          </h2>
-        )}
-        {isMyTurn.value && <h2 class="text-2xl font-bold">It's your turn!</h2>}
-      </div>
-      <div class="m-8 flex flex-col items-center justify-center gap-4">
-        {isMyTurn.value &&
-          !isRolling.value &&
-          hasPendingRadioTowerDecision(gameSnapshot, me?.id ?? "") && (
-            <>
-              <span>
-                You rolled{" "}
-                {gameSnapshot.gameState?.lastDiceRoll?.reduce(
-                  (sum, value) => sum + value,
-                  0,
-                )}
-              </span>
-              <StandardButton onClick$={radioTowerRerollAction}>
-                Reroll
-              </StandardButton>
-              <StandardButton onClick$={radioTowerContinueAction}>
-                Continue
-              </StandardButton>
-            </>
+    <>
+      <div class="grid h-full grid-rows-[auto_1fr_auto]">
+        <div class="text-center">
+          <h1 class="text-4xl font-bold">Game {gameSnapshot.room.code}</h1>
+          {!isMyTurn.value && (
+            <h2 class="text-2xl">
+              It's {playerNames.get(currId.value ?? "")}'s turn
+            </h2>
           )}
-        {isMyTurn.value &&
-          gameSnapshot.gameState?.phase === "rolling" &&
-          !hasPendingRadioTowerDecision(gameSnapshot, me?.id ?? "") &&
-          !isRolling.value && (
-            <>
-              <StandardButton onClick$={rollDiceAction}>
-                Roll Dice
-              </StandardButton>
-              {canRoll2Dice.value && (
-                <StandardButton onClick$={roll2DiceAction}>
-                  Roll 2 Dice
+          {isMyTurn.value && (
+            <h2 class="text-2xl font-bold">It's your turn!</h2>
+          )}
+        </div>
+        <div class="m-8 flex flex-col items-center justify-center gap-4">
+          {isMyTurn.value &&
+            !isRolling.value &&
+            hasPendingRadioTowerDecision(gameSnapshot, me?.id ?? "") && (
+              <>
+                <span>
+                  You rolled{" "}
+                  {gameSnapshot.gameState?.lastDiceRoll?.reduce(
+                    (sum, value) => sum + value,
+                    0,
+                  )}
+                </span>
+                <StandardButton onClick$={radioTowerRerollAction}>
+                  Reroll
                 </StandardButton>
-              )}
-            </>
-          )}
-        {isMyTurn.value &&
-          gameSnapshot.gameState?.phase === "buying" &&
-          !gameSnapshot.gameState.hasPurchased && (
-            <div class="m-8 flex flex-col items-center justify-center gap-4">
-              <LandmarkMarket cards={mePlayer.value?.landmarks ?? {}} />
-              <EstablishmentMarket cards={gameSnapshot.gameState.marketState} />
-              <StandardButton onClick$={endTurnAction}>Skip</StandardButton>
-            </div>
-          )}
-        {isMyTurn.value &&
-          gameSnapshot.gameState?.phase === "buying" &&
-          gameSnapshot.gameState.hasPurchased && (
-            <div class="m-8 flex flex-col items-center justify-center gap-4">
-              <StandardButton onClick$={endTurnAction}>End turn</StandardButton>
-            </div>
-          )}
+                <StandardButton onClick$={radioTowerContinueAction}>
+                  Continue
+                </StandardButton>
+              </>
+            )}
+          {isMyTurn.value &&
+            gameSnapshot.gameState?.phase === "rolling" &&
+            !hasPendingRadioTowerDecision(gameSnapshot, me?.id ?? "") &&
+            !isRolling.value && (
+              <>
+                <StandardButton onClick$={rollDiceAction}>
+                  Roll Dice
+                </StandardButton>
+                {canRoll2Dice.value && (
+                  <StandardButton onClick$={roll2DiceAction}>
+                    Roll 2 Dice
+                  </StandardButton>
+                )}
+              </>
+            )}
+          {isMyTurn.value &&
+            gameSnapshot.gameState?.phase === "buying" &&
+            !gameSnapshot.gameState.hasPurchased && (
+              <div class="m-8 flex flex-col items-center justify-center gap-4">
+                <LandmarkMarket cards={mePlayer.value?.landmarks ?? {}} />
+                <EstablishmentMarket
+                  cards={gameSnapshot.gameState.marketState}
+                />
+                <StandardButton onClick$={endTurnAction}>Skip</StandardButton>
+              </div>
+            )}
+          {isMyTurn.value &&
+            gameSnapshot.gameState?.phase === "buying" &&
+            gameSnapshot.gameState.hasPurchased && (
+              <div class="m-8 flex flex-col items-center justify-center gap-4">
+                <StandardButton onClick$={endTurnAction}>
+                  End turn
+                </StandardButton>
+              </div>
+            )}
+        </div>
+        <GamePlayers
+          players={playersInGame.value}
+          playerNames={playerNames}
+          meId={me?.id ?? ""}
+          currId={currId.value ?? ""}
+          establishmentsInPlay={establishmentsInPlay}
+        />
       </div>
-      <GamePlayers
-        players={playersInGame.value}
-        playerNames={playerNames}
-        meId={me?.id ?? ""}
-        currId={currId.value ?? ""}
-        establishmentsInPlay={establishmentsInPlay}
-      />
-    </div>
+
+      <button onClick$={() => marketDialogRef.value?.showModal()}>
+        Show dialog
+      </button>
+      <dialog ref={marketDialogRef} class="backdrop:bg-[#ff0000]">
+        dfghdfghdfgh
+        <button onClick$={() => marketDialogRef.value?.close()}>
+          Close dialog
+        </button>
+      </dialog>
+    </>
   );
 });

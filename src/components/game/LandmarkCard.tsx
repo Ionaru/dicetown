@@ -31,16 +31,35 @@ export default component$<LandmarkCardProps>(({ card, owned }) => {
   if (!cardDefinition) {
     throw new Error(`Card definition not found for ${card}`);
   }
+
+  let icon = "🔳";
+  switch (card) {
+    case "train-station":
+      icon = "🚂";
+      break;
+    case "shopping-mall":
+      icon = "🛍️";
+      break;
+    case "amusement-park":
+      icon = "🎠";
+      break;
+    case "radio-tower":
+      icon = "📻";
+      break;
+  }
+
+  const baseStyles = "shadow-md bg-mk-card-yellow flex h-62 w-40 cursor-pointer flex-col items-center justify-between rounded-md p-2 text-white transition-all duration-300 hover:scale-105 hover:brightness-105";
+  const ownedStyles = owned ? "opacity-50 pointer-events-none" : "";
+
   return (
     <div
-      class={`${owned ? "bg-mk-card-green" : "bg-mk-card-red"} rounded-md p-2 text-white`}
+      class={`${baseStyles} ${ownedStyles}`}
+      onClick$={() => buyLandmark$(card)}
     >
-      <h1>{cardDefinition.name}</h1>
-      <p>{cardDefinition.description}</p>
-      <p>Cost: {cardDefinition.cost}</p>
-      <button class="cursor-pointer" onClick$={() => buyLandmark$(card)}>
-        Buy
-      </button>
+      <h1 class="text-2xl text-center">{cardDefinition.name}</h1>
+      <p class="text-4xl text-center">{icon}</p>
+      <p class="text-center">{cardDefinition.description}</p>
+      <p class="text-center">🪙 {cardDefinition.cost}</p>
     </div>
   );
 });

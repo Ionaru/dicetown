@@ -20,8 +20,8 @@ export default component$<ButtonProps>(
   }) => {
     let classes =
       variant === "primary"
-        ? "bg-mk-blue text-white hover:bg-mk-blue/80"
-        : "bg-mk-white text-mk-blue hover:bg-mk-white/80";
+        ? "bg-mk-blue text-white hover:brightness-105"
+        : "bg-mk-white text-mk-blue hover:brightness-105";
     if (isLoading) {
       classes += " opacity-50 pointer-events-none";
     }

@@ -3,6 +3,7 @@ import {
   component$,
   useSignal,
   useTask$,
+  useAsync$,
   useVisibleTask$,
 } from "@qwik.dev/core";
 import { Link, routeLoader$, server$, useNavigate } from "@qwik.dev/router";
@@ -77,9 +78,14 @@ export const useCurrentUserId = routeLoader$(async (event) => {
   return session.userId ?? session.anonymousUserId ?? null;
 });
 
-const getUsername = server$((player: typeof players.$inferSelect) =>
-  getPlayerUsername(player),
-);
+const getUsernames = server$(async (p: typeof players.$inferSelect[]) => {
+  const names = new Map<string, string>();
+  for (const player of p) {
+    names.set(player.id, await getPlayerUsername(player));
+  }
+  return names;
+});
+
 const removeAiPlayer$ = server$((playerId: string) => removeAiPlayer(playerId));
 const addAiPlayer$ = server$((roomId: string) => addAiPlayer(roomId));
 const startGame$ = server$((roomId: string) => startGame(roomId));
@@ -119,6 +125,12 @@ export default component$(() => {
   const playersSignal = useSignal<(typeof players.$inferSelect)[]>([]);
   const errorMessage = useSignal<string | null>(null);
   const isHost = useSignal(false);
+
+  const playerNames = useAsync$(async ({track, abortSignal}) => {
+    const players = track(playersSignal);
+    const names = await getUsernames(abortSignal, players);
+    return names;
+  });
 
   useTask$(() => {
     if (room?.id) {
@@ -227,7 +239,6 @@ export default component$(() => {
         <p class="text-2xl">Players: {playersSignal.value.length}/5</p>
         <ul>
           {playersSignal.value.map((player) => {
-            console.log(player);
             const removeAiPlayerAction = $(() => removeAiPlayer$(player.id));
             const isYou =
               currentUserId === player.userId ||
@@ -245,7 +256,7 @@ export default component$(() => {
                 key={player.id}
                 class={`text-center text-2xl ${isYou ? "font-bold" : ""}`}
               >
-                {getUsername(player)} {isYou ? "(You)" : ""}
+                {playerNames.value.get(player.id)} {isYou ? "(You)" : ""}
                 {isHost.value && player.isAi ? removeButton : ""}
               </li>
             );

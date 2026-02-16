@@ -62,15 +62,14 @@ export default component$<MarketCardProps>(({ card, count }) => {
     }
   });
 
+  const baseStyles = `${backgroundColor} rounded-md p-2 text-white ${soldOutStyles} flex flex-col items-center justify-between cursor-pointer hover:scale-105 hover:brightness-105 transition-all duration-300`;
+
   return (
-    <div
-      class={`${backgroundColor} rounded-md p-2 text-white ${soldOutStyles}`}
-    >
-      {cardDefinition.name} - 🪙 {cardDefinition.cost} - x{count} [
-      {cardDefinition.activation.join(", ")}]
-      <button class="cursor-pointer" onClick$={buyEstablishmentAction}>
-        Buy
-      </button>
+    <div class={baseStyles} onClick$={buyEstablishmentAction}>
+      <span>🎲 {cardDefinition.activation.join(", ")}</span>
+      <span>{cardDefinition.name}</span>
+      <span>🪙 {cardDefinition.cost}</span>
+      <span>x{count} available</span>
     </div>
   );
 });
