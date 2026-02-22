@@ -27,14 +27,13 @@ export default component$<GamePlayerEstablishmentsProps>(
         }
         if (owned > 0) {
           grid.push(
-            <div class="relative">
+            <div class="relative" key={element.id}>
               {owned > 1 && (
                 <div
                   class={`m-1 h-4 w-3 rounded-xs shadow-sm/50 ${cardColor} absolute bottom-1 left-1`}
                 ></div>
               )}
               <div
-                key={element.id}
                 class={`relative m-1 h-4 w-3 rounded-xs shadow-sm/50 ${cardColor}`}
                 title={element.name}
               >
@@ -46,9 +45,8 @@ export default component$<GamePlayerEstablishmentsProps>(
           );
         } else {
           grid.push(
-            <div class="relative">
+            <div class="relative" key={element.id}>
               <div
-                key={element.id}
                 class={`relative m-1 h-4 w-3 rounded-xs shadow-sm ${cardColor} opacity-50`}
                 title={element.name}
               ></div>
