@@ -30,7 +30,6 @@ import {
   endTurn,
   getRoomSnapshot,
   resolveDecisionForTurn,
-  rollDiceForTurn,
   RoomSnapshot,
 } from "../../../server/game-service";
 import { getPlayerUsername } from "../../../server/players";
@@ -39,7 +38,8 @@ import {
   runDebouncedTask,
   useDebouncedTaskState,
 } from "../../../utils/use-debounced-task";
-import BigButton from "../../../components/common/BigButton";
+import RollDice from "../../../components/game/actions/RollDice";
+import EndTurn from "../../../components/game/actions/EndTurn";
 
 type GamestateUpdate =
   | typeof gameState.$inferSelect
@@ -121,10 +121,6 @@ export const usePlayerNames = routeLoader$(
     }
     return names;
   },
-);
-
-const rollDice$ = server$((code, playerId, diceCount = 1) =>
-  rollDiceForTurn({ code, playerId, diceCount }),
 );
 
 const endTurn$ = server$((code, playerId) => endTurn({ code, playerId }));
@@ -325,16 +321,6 @@ export default component$(() => {
     });
   });
 
-  const rollDiceAction = $(() => {
-    isRolling.value = true;
-    rollDice$(room.code, me?.id, 1);
-  });
-
-  const roll2DiceAction = $(() => {
-    isRolling.value = true;
-    rollDice$(room.code, me?.id, 2);
-  });
-
   const endTurnAction = $(() => endTurn$(room.code, me?.id));
 
   const radioTowerRerollAction = $(() => {
@@ -361,6 +347,13 @@ export default component$(() => {
   return (
     <>
       <div class="grid h-full grid-rows-[auto_1fr_auto]">
+      <GamePlayers
+          players={playersInGame.value}
+          playerNames={playerNames}
+          meId={me?.id ?? ""}
+          currId={currId.value ?? ""}
+          establishmentsInPlay={establishmentsInPlay}
+        />
         <div class="text-center">
           <h1 class="text-4xl font-bold">Game {gameSnapshot.room.code}</h1>
           {!isMyTurn.value && (
@@ -396,16 +389,7 @@ export default component$(() => {
             gameSnapshot.gameState?.phase === "rolling" &&
             !hasPendingRadioTowerDecision(gameSnapshot, me?.id ?? "") &&
             !isRolling.value && (
-              <div class="flex items-center justify-center gap-4">
-                <BigButton onClick$={rollDiceAction}>
-                  Roll Dice
-                </BigButton>
-                {canRoll2Dice.value && (
-                  <BigButton onClick$={roll2DiceAction}>
-                    Roll 2 Dice
-                  </BigButton>
-                )}
-              </div>
+              <RollDice code={room.code} playerId={me?.id ?? ""} canRoll2Dice={canRoll2Dice.value} isRolling={isRolling} />
             )}
           {isMyTurn.value &&
             gameSnapshot.gameState?.phase === "buying" &&
@@ -427,20 +411,9 @@ export default component$(() => {
           {isMyTurn.value &&
             gameSnapshot.gameState?.phase === "buying" &&
             gameSnapshot.gameState.hasPurchased && (
-              <div class="m-8 flex flex-col items-center justify-center gap-4">
-                <BigButton onClick$={endTurnAction}>
-                  End turn
-                </BigButton>
-              </div>
+              <EndTurn code={room.code} playerId={me?.id ?? ""} />
             )}
         </div>
-        <GamePlayers
-          players={playersInGame.value}
-          playerNames={playerNames}
-          meId={me?.id ?? ""}
-          currId={currId.value ?? ""}
-          establishmentsInPlay={establishmentsInPlay}
-        />
       </div>
 
       <dialog
