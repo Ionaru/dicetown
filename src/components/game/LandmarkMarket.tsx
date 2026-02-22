@@ -7,9 +7,10 @@ import LandmarkCard from "./LandmarkCard";
 
 interface CardMarketProps {
   cards: Partial<Record<LandmarkId, boolean>>;
+  coins: number;
 }
 
-export default component$<CardMarketProps>(({ cards }) => {
+export default component$<CardMarketProps>(({ cards, coins }) => {
   const landmarkCards = (
     Object.entries(LANDMARKS) as Entries<typeof LANDMARKS>
   ).toSorted(([a], [b]) => {
@@ -19,7 +20,12 @@ export default component$<CardMarketProps>(({ cards }) => {
   return (
     <div class="grid grid-cols-4 gap-4">
       {landmarkCards.map(([card]) => (
-        <LandmarkCard key={card} card={card} owned={cards[card] ?? false} />
+        <LandmarkCard
+          key={card}
+          card={card}
+          owned={cards[card] ?? false}
+          canAfford={coins >= LANDMARKS[card].cost}
+        />
       ))}
     </div>
   );

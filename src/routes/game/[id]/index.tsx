@@ -39,6 +39,7 @@ import {
   runDebouncedTask,
   useDebouncedTaskState,
 } from "../../../utils/use-debounced-task";
+import BigButton from "../../../components/common/BigButton";
 
 type GamestateUpdate =
   | typeof gameState.$inferSelect
@@ -395,25 +396,31 @@ export default component$(() => {
             gameSnapshot.gameState?.phase === "rolling" &&
             !hasPendingRadioTowerDecision(gameSnapshot, me?.id ?? "") &&
             !isRolling.value && (
-              <>
-                <StandardButton onClick$={rollDiceAction}>
+              <div class="flex items-center justify-center gap-4">
+                <BigButton onClick$={rollDiceAction}>
                   Roll Dice
-                </StandardButton>
+                </BigButton>
                 {canRoll2Dice.value && (
-                  <StandardButton onClick$={roll2DiceAction}>
+                  <BigButton onClick$={roll2DiceAction}>
                     Roll 2 Dice
-                  </StandardButton>
+                  </BigButton>
                 )}
-              </>
+              </div>
             )}
           {isMyTurn.value &&
             gameSnapshot.gameState?.phase === "buying" &&
             !gameSnapshot.gameState.hasPurchased && (
               <div class="m-8 flex flex-col items-center justify-center gap-4">
-                <LandmarkMarket cards={mePlayer.value?.landmarks ?? {}} />
-                <EstablishmentMarket
-                  cards={gameSnapshot.gameState.marketState}
+                <LandmarkMarket
+                  cards={mePlayer.value?.landmarks ?? {}}
+                  coins={mePlayer.value?.coins ?? 0}
                 />
+                <StandardButton
+                  class="w-auto px-8"
+                  onClick$={() => marketDialogRef.value?.showModal()}
+                >
+                  Open Market
+                </StandardButton>
                 <StandardButton onClick$={endTurnAction}>Skip</StandardButton>
               </div>
             )}
@@ -421,9 +428,9 @@ export default component$(() => {
             gameSnapshot.gameState?.phase === "buying" &&
             gameSnapshot.gameState.hasPurchased && (
               <div class="m-8 flex flex-col items-center justify-center gap-4">
-                <StandardButton onClick$={endTurnAction}>
+                <BigButton onClick$={endTurnAction}>
                   End turn
-                </StandardButton>
+                </BigButton>
               </div>
             )}
         </div>
@@ -436,14 +443,22 @@ export default component$(() => {
         />
       </div>
 
-      <button onClick$={() => marketDialogRef.value?.showModal()}>
-        Show dialog
-      </button>
-      <dialog ref={marketDialogRef} class="backdrop:bg-[#ff0000]">
-        dfghdfghdfgh
-        <button onClick$={() => marketDialogRef.value?.close()}>
-          Close dialog
-        </button>
+      <dialog
+        ref={marketDialogRef}
+        class="select-none fixed inset-0 m-auto max-h-[85vh] w-[min(92vw,72rem)] overflow-y-auto rounded-md border-0 bg-mk-card-sky p-8 shadow-md backdrop:bg-black/40"
+      >
+        <h2 class="text-4xl">Establishment Market</h2>
+        <div class="mt-4">
+          <EstablishmentMarket
+            cards={gameSnapshot.gameState.marketState}
+            coins={mePlayer.value?.coins ?? 0}
+          />
+        </div>
+        <div class="mt-6 flex justify-end">
+          <StandardButton class="w-auto px-8" onClick$={() => marketDialogRef.value?.close()}>
+            Close
+          </StandardButton>
+        </div>
       </dialog>
     </>
   );

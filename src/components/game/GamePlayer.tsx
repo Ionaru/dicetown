@@ -1,4 +1,4 @@
-import { component$ } from "@qwik.dev/core";
+import { component$, QRL } from "@qwik.dev/core";
 
 import {
   EstablishmentId,
@@ -17,6 +17,7 @@ interface PlayerBoxProps {
   landmarks: Partial<Record<LandmarkId, boolean>>;
   establishments: Partial<Record<EstablishmentId, number>>;
   establishmentsInPlay: (typeof ESTABLISHMENTS)[keyof typeof ESTABLISHMENTS][];
+  onClick$?: QRL<() => void>;
 }
 
 export default component$<PlayerBoxProps>(
@@ -29,6 +30,7 @@ export default component$<PlayerBoxProps>(
     landmarks = {},
     establishments = {},
     establishmentsInPlay,
+    onClick$,
   }) => {
     const isCurrentTurnStyle = isCurrentTurn
       ? "border-double border-x-4 border-t-4 border-white pb-4"
@@ -40,6 +42,7 @@ export default component$<PlayerBoxProps>(
     return (
       <div
         class={`flex h-max cursor-pointer flex-col items-center justify-center gap-2 p-2 text-xl text-white transition-[padding,filter] ease-in-out select-none hover:pb-4 hover:brightness-105 ${isCurrentTurnStyle} ${isMeStyle} ${isAiStyle}`}
+        onClick$={onClick$}
       >
         <span class="h-6 rounded-md">{name}</span>
         <span class="font-honey rounded-md text-2xl">🪙 {coins}</span>

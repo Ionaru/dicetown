@@ -25,9 +25,10 @@ const buyEstablishmnent$ = server$(async function (card: EstablishmentId) {
 interface MarketCardProps {
   card: EstablishmentId;
   count: number;
+  canAfford: boolean;
 }
 
-export default component$<MarketCardProps>(({ card, count }) => {
+export default component$<MarketCardProps>(({ card, count, canAfford }) => {
   const cardDefinition = ESTABLISHMENTS[card];
   if (!cardDefinition) {
     throw new Error(`Card definition not found for ${card}`);
@@ -49,7 +50,17 @@ export default component$<MarketCardProps>(({ card, count }) => {
       break;
   }
 
-  const soldOutStyles = count <= 0 ? "opacity-50 pointer-events-none" : "";
+  let disabledReason: string | null = null;
+  if (count <= 0) {
+    disabledReason = "Sold out";
+  } else if (canAfford === false) {
+    disabledReason = "Not enough coins";
+  }
+  const isDisabled = disabledReason !== null;
+  const disabledStyles = isDisabled ? "opacity-50 pointer-events-none" : "";
+  const interactionStyles = isDisabled
+    ? ""
+    : "cursor-pointer hover:scale-105 hover:brightness-105";
 
   const buyEstablishmentAction = $(async () => {
     try {
@@ -62,14 +73,24 @@ export default component$<MarketCardProps>(({ card, count }) => {
     }
   });
 
-  const baseStyles = `${backgroundColor} rounded-md p-2 text-white ${soldOutStyles} flex flex-col items-center justify-between cursor-pointer hover:scale-105 hover:brightness-105 transition-all duration-300`;
+  const baseStyles = `${backgroundColor} rounded-md p-2 text-white ${disabledStyles} ${interactionStyles} flex flex-col items-center justify-between transition-all duration-300`;
 
   return (
-    <div class={baseStyles} onClick$={buyEstablishmentAction}>
+    <div
+      class={baseStyles}
+      onClick$={isDisabled ? undefined : buyEstablishmentAction}
+      aria-disabled={isDisabled}
+      title={disabledReason ?? undefined}
+    >
       <span>🎲 {cardDefinition.activation.join(", ")}</span>
       <span>{cardDefinition.name}</span>
       <span>🪙 {cardDefinition.cost}</span>
       <span>x{count} available</span>
+      {disabledReason && (
+        <span class="rounded-md bg-black/30 px-2 py-1 text-center text-xs font-semibold">
+          {disabledReason}
+        </span>
+      )}
     </div>
   );
 });

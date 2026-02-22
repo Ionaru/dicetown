@@ -24,9 +24,10 @@ const buyLandmark$ = server$(async function (card: LandmarkId) {
 interface LandmarkCardProps {
   card: LandmarkId;
   owned: boolean;
+  canAfford: boolean;
 }
 
-export default component$<LandmarkCardProps>(({ card, owned }) => {
+export default component$<LandmarkCardProps>(({ card, owned, canAfford }) => {
   const cardDefinition = LANDMARKS[card];
   if (!cardDefinition) {
     throw new Error(`Card definition not found for ${card}`);
@@ -48,18 +49,35 @@ export default component$<LandmarkCardProps>(({ card, owned }) => {
       break;
   }
 
-  const baseStyles = "shadow-md bg-mk-card-yellow flex h-62 w-40 cursor-pointer flex-col items-center justify-between rounded-md p-2 text-white transition-all duration-300 hover:scale-105 hover:brightness-105";
-  const ownedStyles = owned ? "opacity-50 pointer-events-none" : "";
+  let disabledReason: string | null = null;
+  if (owned) {
+    disabledReason = "Already owned";
+  } else if (canAfford === false) {
+    disabledReason = "Not enough coins";
+  }
+  const isDisabled = disabledReason !== null;
+  const disabledStyles = isDisabled ? "opacity-50 pointer-events-none" : "";
+  const interactionStyles = isDisabled
+    ? ""
+    : "cursor-pointer hover:scale-105 hover:brightness-105";
+  const baseStyles = `shadow-md bg-mk-card-yellow flex h-62 w-40 flex-col items-center justify-between rounded-md p-2 text-white transition-all duration-300 ${interactionStyles} ${disabledStyles}`;
 
   return (
     <div
-      class={`${baseStyles} ${ownedStyles}`}
-      onClick$={() => buyLandmark$(card)}
+      class={baseStyles}
+      onClick$={isDisabled ? undefined : (() => buyLandmark$(card))}
+      aria-disabled={isDisabled}
+      title={disabledReason ?? undefined}
     >
       <h1 class="text-2xl text-center">{cardDefinition.name}</h1>
       <p class="text-4xl text-center">{icon}</p>
       <p class="text-center">{cardDefinition.description}</p>
       <p class="text-center">🪙 {cardDefinition.cost}</p>
+      {disabledReason && (
+        <span class="rounded-md bg-black/30 px-2 py-1 text-center text-xs font-semibold">
+          {disabledReason}
+        </span>
+      )}
     </div>
   );
 });

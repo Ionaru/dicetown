@@ -7,9 +7,10 @@ import EstablishmentCard from "./EstablishmentCard";
 
 interface CardMarketProps {
   cards: Record<EstablishmentId, number>;
+  coins: number;
 }
 
-export default component$<CardMarketProps>(({ cards }) => {
+export default component$<CardMarketProps>(({ cards, coins }) => {
   const marketCards = useComputed$(() =>
     (Object.entries(cards) as Entries<typeof cards>).toSorted(([a], [b]) => {
       return (
@@ -22,7 +23,12 @@ export default component$<CardMarketProps>(({ cards }) => {
   return (
     <div class="grid grid-cols-5 gap-4">
       {marketCards.value.map(([card, count]) => (
-        <EstablishmentCard key={card} card={card} count={count} />
+        <EstablishmentCard
+          key={card}
+          card={card}
+          count={count}
+          canAfford={coins >= ESTABLISHMENTS[card].cost}
+        />
       ))}
     </div>
   );
