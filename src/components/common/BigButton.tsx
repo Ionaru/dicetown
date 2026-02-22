@@ -30,7 +30,7 @@ export default component$<ButtonProps>(
     }
     return (
       <button
-        class={`${classes} font-junegull text-xl cursor-pointer rounded-md px-12 py-12 transition hover:scale-105 ${className}`}
+        class={`${classes} font-junegull text-xl cursor-pointer rounded-md h-24 w-full transition hover:scale-105 ${className}`}
         onclick$={isLoading ? null : onClick$}
         type={type}
       >

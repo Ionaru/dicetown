@@ -9,12 +9,13 @@ import {
 
 import { getSessionContext } from "../../auth/session";
 import Title from "../../components/common/MainTitle";
-import Button from "../../components/common/StandardButton";
+import StandardButton from "../../components/common/StandardButton";
 import Subtitle from "../../components/common/SubTitle";
 import { createRoom } from "../../server/game-service";
 import { title } from "../../utils/title";
 
 import { navigateToRoom } from "./guards";
+import BigButton from "../../components/common/BigButton";
 
 export const usePlayerRoom = routeLoader$((requestEvent) =>
   navigateToRoom(requestEvent),
@@ -28,6 +29,7 @@ const createRoomAction = server$(async function () {
 export default component$(() => {
   const nav = useNavigate();
   const isLoading = useSignal(false);
+  const howToPlayDialogRef = useSignal<HTMLDialogElement>();
   const createRoom = $(async () => {
     try {
       isLoading.value = true;
@@ -38,22 +40,48 @@ export default component$(() => {
     }
   });
 
+  const openHowToPlayDialog = $(() => {
+    howToPlayDialogRef.value?.showModal();
+  });
+
+  const closeHowToPlayDialog = $(() => {
+    howToPlayDialogRef.value?.close();
+  });
+
   return (
-    <div class="flex h-full flex-col items-center justify-center gap-4 select-none">
-      <Title />
-      <Subtitle text="Roll your dice, earn coins, and expand your town!" />
-      <div class="grid w-100 grid-cols-2 items-center justify-center gap-4">
-        <Button onClick$={createRoom} isLoading={isLoading.value}>
-          Create Game
-        </Button>
-        <Link href="/room/join/">
-          <Button>Join Game</Button>
-        </Link>
-        <Link class="col-span-2">
-          <Button variant="secondary">How to play</Button>
-        </Link>
+    <>
+      <div class="flex h-full flex-col items-center justify-center gap-4 select-none">
+        <Title />
+        <Subtitle text="Roll your dice, earn coins, and expand your town!" />
+        <div class="grid w-100 grid-cols-2 items-center justify-center gap-4">
+          <BigButton onClick$={createRoom} isLoading={isLoading.value}>
+            Create Game
+          </BigButton>
+          <Link href="/room/join/">
+            <BigButton>Join Game</BigButton>
+          </Link>
+          <StandardButton
+            class="col-span-2"
+            variant="secondary"
+            onClick$={openHowToPlayDialog}
+          >
+            How to play
+          </StandardButton>
+        </div>
       </div>
-    </div>
+      <dialog
+        ref={howToPlayDialogRef}
+        class="bg-mk-card-sky fixed inset-0 m-auto overflow-y-auto rounded-md border-0 p-8 shadow-md select-none backdrop:bg-black/40"
+      >
+        <h2 class="text-4xl">How to play</h2>
+        <p class="text-xl">
+          TBD
+        </p>
+        <StandardButton class="w-auto px-8" onClick$={closeHowToPlayDialog}>
+          Close
+        </StandardButton>
+      </dialog>
+    </>
   );
 });
 
