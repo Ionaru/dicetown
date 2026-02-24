@@ -13,7 +13,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { EstablishmentId, LandmarkId } from "../game/constants";
-import { MarketState, PendingDecision } from "../game/types";
+import { MarketState, PendingDecision, Transaction } from "../game/types";
 import { RoomStatus, TurnPhase } from "../utils/enums";
 
 export const roomStatusEnum = pgEnum("room_status", [
@@ -186,6 +186,10 @@ export const gameState = pgTable(
       .default(sql`'{}'::jsonb`),
     pendingDecisions: jsonb("pending_decisions")
       .$type<PendingDecision[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    lastRollTransactions: jsonb("last_roll_transactions")
+      .$type<Transaction[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
     hasPurchased: boolean("has_purchased").notNull().default(false),

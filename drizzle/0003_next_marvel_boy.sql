@@ -1,0 +1,1 @@
+ALTER TABLE "game_state" ADD COLUMN "last_roll_transactions" jsonb DEFAULT '[]'::jsonb NOT NULL;

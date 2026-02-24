@@ -17,74 +17,42 @@ import { supabase } from "../../../client/supabase";
 import SmallTitle from "../../../components/common/SmallTitle";
 import StandardButton from "../../../components/common/StandardButton";
 import SubTitle from "../../../components/common/SubTitle";
+import BusinessCenterPicker from "../../../components/game/actions/BusinessCenterPicker";
+import EndTurn from "../../../components/game/actions/EndTurn";
+import IncomeDisplay from "../../../components/game/actions/IncomeDisplay";
+import RollDice from "../../../components/game/actions/RollDice";
+import TvStationPicker from "../../../components/game/actions/TvStationPicker";
 import EstablishmentMarket from "../../../components/game/EstablishmentMarket";
 import GamePlayers from "../../../components/game/GamePlayers";
 import LandmarkMarket from "../../../components/game/LandmarkMarket";
 import { DiceBoxContext } from "../../../context/dice-box";
 import { gameState, players, rooms } from "../../../db/schema";
 import { mapRowToTable } from "../../../db/utils";
-import { ESTABLISHMENTS } from "../../../game/constants";
-import { canRollTwoDice } from "../../../game/engine";
-import { RadioTowerDecision } from "../../../game/types";
+import { ESTABLISHMENTS, type EstablishmentId } from "../../../game/constants";
+import {
+  deriveTurnUIState,
+  getIncomeSteps,
+  getNextIncomeStep,
+  groupTransactionsByColor,
+  type IncomeStep,
+  type TurnUIState,
+} from "../../../game/turn-ui-state";
+import type { PendingDecisionResolution } from "../../../game/types";
 import {
   endTurn,
   getRoomSnapshot,
   resolveDecisionForTurn,
-  RoomSnapshot,
 } from "../../../server/game-service";
 import { getPlayerUsername } from "../../../server/players";
-import { RoomStatus, TurnPhase } from "../../../utils/enums";
+import { RoomStatus } from "../../../utils/enums";
 import {
   runDebouncedTask,
   useDebouncedTaskState,
 } from "../../../utils/use-debounced-task";
-import RollDice from "../../../components/game/actions/RollDice";
-import EndTurn from "../../../components/game/actions/EndTurn";
 
 type GamestateUpdate =
   | typeof gameState.$inferSelect
   | typeof players.$inferSelect;
-
-const shouldShowDiceRoll = (
-  snapshot: RoomSnapshot,
-  update: GamestateUpdate,
-): boolean => {
-  if ("phase" in update) {
-    if (
-      snapshot.gameState?.phase === TurnPhase.Rolling &&
-      update.lastDiceRoll
-    ) {
-      return true;
-    }
-    return false;
-  }
-  return false;
-};
-
-const shouldShowIncome = (
-  snapshot: RoomSnapshot,
-  update: GamestateUpdate,
-): boolean => {
-  if ("phase" in update) {
-    if (
-      snapshot.gameState?.phase === TurnPhase.Rolling &&
-      update.phase === TurnPhase.Buying
-    ) {
-      console.log("income?");
-      return true;
-    }
-  }
-  return false;
-};
-
-const hasPendingRadioTowerDecision = (
-  snapshot: RoomSnapshot,
-  playerId: string,
-) =>
-  snapshot.gameState?.pendingDecisions.some(
-    (decision) =>
-      decision.type === "radio-tower" && decision.ownerId === playerId,
-  ) ?? false;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -97,6 +65,44 @@ const doDiceRoll = (diceBox: DiceBox, result: number[]) =>
     };
     diceBox.roll(`${result.length}d6@${result.join(",")}`);
   });
+
+const diceChanged = (
+  a: number[] | null | undefined,
+  b: number[] | null | undefined,
+): boolean => {
+  if (!a && !b) return false;
+  if (!a || !b) return true;
+  return a.length !== b.length || a.some((v, i) => v !== b[i]);
+};
+
+const extractTransactions = (
+  update: typeof gameState.$inferSelect,
+): import("../../../game/types").Transaction[] => {
+  if (
+    "lastRollTransactions" in update &&
+    Array.isArray(update.lastRollTransactions)
+  ) {
+    return update.lastRollTransactions;
+  }
+  return [];
+};
+
+const shouldStartIncomeSequence = (
+  oldPhase: string | undefined,
+  update: typeof gameState.$inferSelect,
+): boolean => {
+  const txns = extractTransactions(update);
+  return oldPhase === "rolling" && update.phase !== "rolling" && txns.length > 0;
+};
+
+function startIncomeSequence(
+  update: typeof gameState.$inferSelect,
+): IncomeStep | null {
+  const txns = extractTransactions(update);
+  const grouped = groupTransactionsByColor(txns);
+  const steps = getIncomeSteps(grouped);
+  return steps[0] ?? null;
+}
 
 export const useGame = routeLoader$(({ params }) =>
   getRoomSnapshot(params.id ?? ""),
@@ -123,10 +129,12 @@ export const usePlayerNames = routeLoader$(
   },
 );
 
-const endTurn$ = server$((code, playerId) => endTurn({ code, playerId }));
+const endTurn$ = server$((code: string, playerId: string) =>
+  endTurn({ code, playerId }),
+);
 
-const resolveRadioTowerDecisionForTurn$ = server$(
-  (code, playerId, decision: RadioTowerDecision) =>
+const resolveDecision$ = server$(
+  (code: string, playerId: string, decision: PendingDecisionResolution) =>
     resolveDecisionForTurn({ code, playerId, decision }),
 );
 
@@ -157,12 +165,8 @@ export default component$(() => {
   const currId = useComputed$(
     () => gameSnapshot.gameState?.currentTurnPlayerId ?? null,
   );
-  const isMyTurn = useComputed$(() => currId.value === me?.id);
   const mePlayer = useComputed$(() =>
     playersInGame.value.find((p) => p.id === me?.id),
-  );
-  const canRoll2Dice = useComputed$(() =>
-    mePlayer.value ? canRollTwoDice(mePlayer.value) : false,
   );
   const taskState = useDebouncedTaskState();
 
@@ -184,49 +188,60 @@ export default component$(() => {
   }
 
   const isRolling = useSignal(false);
-  const isRerolling = useSignal(false);
+  const incomeStep = useSignal<IncomeStep | null>(null);
 
-  /**
-   * This task is responsible for updating the UI and handling UI events based on the game state.
-   * For example, showing a dice roll animation and visualizing the purchase of an establishment.
-   */
+  const turnUIState = useComputed$<TurnUIState>(() => {
+    if (!gameSnapshot.gameState || !me) {
+      return { kind: "not-my-turn" };
+    }
+    const myPlayer = gameSnapshot.players.find((p) => p.id === me.id);
+    if (!myPlayer) {
+      return { kind: "not-my-turn" };
+    }
+    return deriveTurnUIState({
+      gameState: gameSnapshot.gameState,
+      myPlayerId: me.id,
+      myPlayer,
+      players: gameSnapshot.players,
+      isRolling: isRolling.value,
+      incomeStep: incomeStep.value,
+    });
+  });
+
   useTask$(
     async ({ track }) => {
       const queue = track(updateQueue);
       await runDebouncedTask(track, taskState, async () => {
         try {
           while (queue.length > 0) {
-            const updatedGameState = queue.shift();
-            if (!updatedGameState) continue;
+            const update = queue.shift();
+            if (!update) continue;
 
-            if ("phase" in updatedGameState) {
-              if (shouldShowDiceRoll(gameSnapshot, updatedGameState)) {
-                if (!diceBox.value) return;
-                await doDiceRoll(
-                  diceBox.value,
-                  updatedGameState.lastDiceRoll ?? [],
-                );
+            if ("phase" in update) {
+              const oldDice = gameSnapshot.gameState?.lastDiceRoll;
+              const oldPhase = gameSnapshot.gameState?.phase;
+
+              if (diceChanged(oldDice, update.lastDiceRoll) && update.lastDiceRoll && diceBox.value) {
+                await doDiceRoll(diceBox.value, update.lastDiceRoll);
                 isRolling.value = false;
               }
 
-              if (shouldShowIncome(gameSnapshot, updatedGameState)) {
-                console.log("income!");
+              if (shouldStartIncomeSequence(oldPhase, update)) {
+                incomeStep.value = startIncomeSequence(update);
               }
 
-              gameSnapshot.gameState = updatedGameState;
+              gameSnapshot.gameState = update;
             }
 
-            if ("coins" in updatedGameState) {
+            if ("coins" in update) {
               await sleep(20);
               gameSnapshot.players = gameSnapshot.players.map((p) =>
-                p.id === updatedGameState.id ? updatedGameState : p,
+                p.id === update.id ? update : p,
               );
             }
           }
         } finally {
           isRolling.value = false;
-          isRerolling.value = false;
-          // No-op
         }
       });
     },
@@ -321,11 +336,19 @@ export default component$(() => {
     });
   });
 
-  const endTurnAction = $(() => endTurn$(room.code, me?.id));
+  const advanceIncomeStep = $(() => {
+    const txns = gameSnapshot.gameState?.lastRollTransactions ?? [];
+    const grouped = groupTransactionsByColor(txns);
+    const steps = getIncomeSteps(grouped);
+    const next = getNextIncomeStep(steps, incomeStep.value);
+    incomeStep.value = next;
+  });
+
+  const endTurnAction = $(() => endTurn$(room.code, me?.id ?? ""));
 
   const radioTowerRerollAction = $(() => {
     isRolling.value = true;
-    resolveRadioTowerDecisionForTurn$(room.code, me?.id, {
+    resolveDecision$(room.code, me?.id ?? "", {
       type: "radio-tower",
       ownerId: me?.id ?? "",
       choice: "reroll",
@@ -333,21 +356,47 @@ export default component$(() => {
   });
 
   const radioTowerContinueAction = $(() => {
-    resolveRadioTowerDecisionForTurn$(room.code, me?.id, {
+    resolveDecision$(room.code, me?.id ?? "", {
       type: "radio-tower",
       ownerId: me?.id ?? "",
       choice: "keep",
     });
   });
 
-  const establishmentsInPlay = Object.values(ESTABLISHMENTS);
+  const tvStationAction = $((targetPlayerId: string) => {
+    resolveDecision$(room.code, me?.id ?? "", {
+      type: "tv-station",
+      ownerId: me?.id ?? "",
+      targetPlayerId,
+    });
+  });
 
+  const businessCenterAction = $(
+    (
+      targetPlayerId: string,
+      giveCardId: EstablishmentId,
+      takeCardId: EstablishmentId,
+    ) => {
+      resolveDecision$(room.code, me?.id ?? "", {
+        type: "business-center",
+        ownerId: me?.id ?? "",
+        targetPlayerId,
+        giveCardId,
+        takeCardId,
+      });
+    },
+  );
+
+  const establishmentsInPlay = Object.values(ESTABLISHMENTS);
   const marketDialogRef = useSignal<HTMLDialogElement>();
+
+  const isMyTurn =
+    gameSnapshot.gameState.currentTurnPlayerId === me?.id;
 
   return (
     <>
       <div class="grid h-full grid-rows-[auto_1fr_auto]">
-      <GamePlayers
+        <GamePlayers
           players={playersInGame.value}
           playerNames={playerNames}
           meId={me?.id ?? ""}
@@ -356,63 +405,91 @@ export default component$(() => {
         />
         <div class="text-center">
           <h1 class="text-4xl font-bold">Game {gameSnapshot.room.code}</h1>
-          {!isMyTurn.value && (
+          {!isMyTurn && (
             <h2 class="text-2xl">
               It's {playerNames.get(currId.value ?? "")}'s turn
             </h2>
           )}
-          {isMyTurn.value && (
+          {isMyTurn && (
             <h2 class="text-2xl font-bold">It's your turn!</h2>
           )}
         </div>
         <div class="m-8 flex flex-col items-center justify-center gap-4">
-          {isMyTurn.value &&
-            !isRolling.value &&
-            hasPendingRadioTowerDecision(gameSnapshot, me?.id ?? "") && (
-              <>
-                <span>
-                  You rolled{" "}
-                  {gameSnapshot.gameState?.lastDiceRoll?.reduce(
-                    (sum, value) => sum + value,
-                    0,
-                  )}
-                </span>
-                <StandardButton onClick$={radioTowerRerollAction}>
-                  Reroll
-                </StandardButton>
-                <StandardButton onClick$={radioTowerContinueAction}>
-                  Continue
-                </StandardButton>
-              </>
-            )}
-          {isMyTurn.value &&
-            gameSnapshot.gameState?.phase === "rolling" &&
-            !hasPendingRadioTowerDecision(gameSnapshot, me?.id ?? "") &&
-            !isRolling.value && (
-              <RollDice code={room.code} playerId={me?.id ?? ""} canRoll2Dice={canRoll2Dice.value} isRolling={isRolling} />
-            )}
-          {isMyTurn.value &&
-            gameSnapshot.gameState?.phase === "buying" &&
-            !gameSnapshot.gameState.hasPurchased && (
-              <div class="m-8 flex flex-col items-center justify-center gap-4">
-                <LandmarkMarket
-                  cards={mePlayer.value?.landmarks ?? {}}
-                  coins={mePlayer.value?.coins ?? 0}
-                />
-                <StandardButton
-                  class="w-auto px-8"
-                  onClick$={() => marketDialogRef.value?.showModal()}
-                >
-                  Open Market
-                </StandardButton>
-                <StandardButton onClick$={endTurnAction}>Skip</StandardButton>
-              </div>
-            )}
-          {isMyTurn.value &&
-            gameSnapshot.gameState?.phase === "buying" &&
-            gameSnapshot.gameState.hasPurchased && (
-              <EndTurn code={room.code} playerId={me?.id ?? ""} />
-            )}
+          {turnUIState.value.kind === "roll-dice" && (
+            <RollDice
+              code={room.code}
+              playerId={me?.id ?? ""}
+              canRoll2Dice={turnUIState.value.canRollTwo}
+              isRolling={isRolling}
+            />
+          )}
+
+          {turnUIState.value.kind === "radio-tower-decision" && (
+            <>
+              <span>You rolled {turnUIState.value.total}</span>
+              <StandardButton onClick$={radioTowerRerollAction}>
+                Reroll
+              </StandardButton>
+              <StandardButton onClick$={radioTowerContinueAction}>
+                Continue
+              </StandardButton>
+            </>
+          )}
+
+          {(turnUIState.value.kind === "income-red" ||
+            turnUIState.value.kind === "income-blue" ||
+            turnUIState.value.kind === "income-green" ||
+            turnUIState.value.kind === "income-purple") && (
+            <IncomeDisplay
+              step={
+                turnUIState.value.kind.replace("income-", "") as IncomeStep
+              }
+              transactions={turnUIState.value.transactions}
+              playerNames={playerNames}
+              onContinue$={advanceIncomeStep}
+            />
+          )}
+
+          {turnUIState.value.kind === "decision-tv-station" && (
+            <TvStationPicker
+              opponents={turnUIState.value.opponents}
+              playerNames={playerNames}
+              onPick$={tvStationAction}
+            />
+          )}
+
+          {turnUIState.value.kind === "decision-business-center" && (
+            <BusinessCenterPicker
+              myCards={turnUIState.value.myCards}
+              opponents={turnUIState.value.opponents}
+              playerNames={playerNames}
+              onPick$={businessCenterAction}
+            />
+          )}
+
+          {turnUIState.value.kind === "buying" && (
+            <div class="m-8 flex flex-col items-center justify-center gap-4">
+              <LandmarkMarket
+                cards={mePlayer.value?.landmarks ?? {}}
+                coins={mePlayer.value?.coins ?? 0}
+              />
+              <StandardButton
+                class="w-auto px-8"
+                onClick$={() => marketDialogRef.value?.showModal()}
+              >
+                Open Market
+              </StandardButton>
+              <StandardButton onClick$={endTurnAction}>Skip</StandardButton>
+            </div>
+          )}
+
+          {turnUIState.value.kind === "end-turn" && (
+            <EndTurn
+              code={room.code}
+              playerId={me?.id ?? ""}
+              isDoubles={turnUIState.value.isDoubles}
+            />
+          )}
         </div>
       </div>
 
@@ -428,7 +505,10 @@ export default component$(() => {
           />
         </div>
         <div class="mt-6 flex justify-end">
-          <StandardButton class="w-auto px-8" onClick$={() => marketDialogRef.value?.close()}>
+          <StandardButton
+            class="w-auto px-8"
+            onClick$={() => marketDialogRef.value?.close()}
+          >
             Close
           </StandardButton>
         </div>

@@ -35,6 +35,7 @@ import {
   type PendingDecision,
   type PendingDecisionResolution,
   type PlayerState,
+  type Transaction,
 } from "../game/types";
 import { RoomStatus, TurnPhase } from "../utils/enums";
 
@@ -51,6 +52,7 @@ export type RoomSnapshot = {
     currentTurnPlayerId: string | null;
     phase: TurnPhase;
     lastDiceRoll: number[] | null;
+    lastRollTransactions: Transaction[];
     marketState: Record<EstablishmentId, number>;
     pendingDecisions: PendingDecision[];
     hasPurchased: boolean;
@@ -161,6 +163,9 @@ export const getRoomSnapshot = async (
         currentTurnPlayerId: room.gameState.currentTurnPlayerId ?? null,
         phase: room.gameState.phase,
         lastDiceRoll: room.gameState.lastDiceRoll ?? null,
+        lastRollTransactions: normalizeTransactions(
+          room.gameState.lastRollTransactions,
+        ),
         marketState: normalizeMarketState(room.gameState.marketState),
         pendingDecisions: normalizePendingDecisions(
           room.gameState.pendingDecisions,
@@ -225,6 +230,7 @@ export const startGame = async (code: string): Promise<RoomSnapshot> => {
           currentTurnPlayerId: firstPlayerId,
           phase: TurnPhase.Rolling,
           lastDiceRoll: null,
+          lastRollTransactions: [],
           marketState: createInitialMarketState(),
           pendingDecisions: [],
           hasPurchased: false,
@@ -235,6 +241,7 @@ export const startGame = async (code: string): Promise<RoomSnapshot> => {
         roomId: snapshot.room.id,
         currentTurnPlayerId: firstPlayerId,
         phase: TurnPhase.Rolling,
+        lastRollTransactions: [],
         marketState: createInitialMarketState(),
         pendingDecisions: [],
         hasPurchased: false,
@@ -294,6 +301,7 @@ export const rollDiceForTurn = async (input: {
       .update(gameState)
       .set({
         lastDiceRoll: dice,
+        lastRollTransactions: [],
         phase: TurnPhase.Rolling,
         pendingDecisions: [{ type: "radio-tower", ownerId: input.playerId }],
         hasPurchased: false,
@@ -319,13 +327,13 @@ export const rollDiceForTurn = async (input: {
       .update(gameState)
       .set({
         lastDiceRoll: dice,
+        lastRollTransactions: resolved.transactions,
         phase: nextPhase,
         pendingDecisions: resolved.pendingDecisions,
         hasPurchased: false,
       })
       .where(eq(gameState.roomId, snapshot.room.id));
     await persistPlayers(tx, snapshot.room.id, resolved.players);
-
   });
 
   return (await getRoomSnapshot(input.code)) as RoomSnapshot;
@@ -371,6 +379,9 @@ export const resolveDecisionForTurn = async (input: {
         item.ownerId === input.decision.ownerId),
   );
 
+  const existingTransactions = snapshot.gameState.lastRollTransactions ?? [];
+  const mergedTransactions = [...existingTransactions, ...resolved.transactions];
+
   const nextPhase = remainingPending.length > 0 ? TurnPhase.Income : TurnPhase.Buying;
 
   await db.transaction(async (tx) => {
@@ -378,6 +389,7 @@ export const resolveDecisionForTurn = async (input: {
     await tx
       .update(gameState)
       .set({
+        lastRollTransactions: mergedTransactions,
         phase: nextPhase,
         pendingDecisions: remainingPending,
       })
@@ -436,6 +448,7 @@ const resolveRadioTowerDecisionForTurn = async (input: {
       .update(gameState)
       .set({
         lastDiceRoll: finalDice,
+        lastRollTransactions: resolved.transactions,
         phase: nextPhase,
         pendingDecisions: resolved.pendingDecisions,
         hasPurchased: false,
@@ -700,6 +713,9 @@ const normalizeMarketState = (value: unknown): Record<EstablishmentId, number> =
     number
   >;
 
+const normalizeTransactions = (value: unknown): Transaction[] =>
+  (Array.isArray(value) ? value : []) as Transaction[];
+
 const normalizePendingDecisions = (value: unknown): PendingDecision[] =>
   (Array.isArray(value) ? value : []) as PendingDecision[];
 
@@ -808,6 +824,7 @@ const endTurnInternal = async (input: {
       currentTurnPlayerId: nextPlayerId,
       phase: TurnPhase.Rolling,
       lastDiceRoll: null,
+      lastRollTransactions: [],
       pendingDecisions: [],
       hasPurchased: false,
     })

@@ -8,6 +8,7 @@ import {
 } from "@qwik.dev/router";
 
 import { getSessionContext } from "../../auth/session";
+import BigButton from "../../components/common/BigButton";
 import Title from "../../components/common/MainTitle";
 import StandardButton from "../../components/common/StandardButton";
 import Subtitle from "../../components/common/SubTitle";
@@ -15,7 +16,6 @@ import { createRoom } from "../../server/game-service";
 import { title } from "../../utils/title";
 
 import { navigateToRoom } from "./guards";
-import BigButton from "../../components/common/BigButton";
 
 export const usePlayerRoom = routeLoader$((requestEvent) =>
   navigateToRoom(requestEvent),
